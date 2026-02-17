@@ -26,7 +26,7 @@
   - 开箱即用：默认适配 **Gemini** (免费且高速)。
   - 兼容并包：完美支持 **DeepSeek**、**OpenAI**、**SiliconFlow** 等所有兼容 OpenAI 格式的 API 服务。
 
-## 🚀 快速上手 (30秒)
+## 使用教程
 
 1. **安装插件**：在 VS Code 插件市场搜索并安装 `Code Decode`。
 2. **配置 API**：
@@ -59,10 +59,13 @@
   - 译文以灰色虚影形式跟在变量名后面。
   - 优点：视线无需移动，沉浸式阅读。
   - _效果示例：_ `const user: 用户 = getUser: 获取用户();`
+  <img width="1820" height="1378" alt="image" src="https://github.com/user-attachments/assets/ba96eeea-8d23-4f37-9098-72de36002498" />
+
 
 - **Code Decode: Use Split Mode** (快捷键 `Ctrl+Alt+T`)
   - 自动打开右侧对比窗口，显示翻译后的伪代码。
   - 优点：源码保持纯净，适合大段代码对照理解。
+<img width="2570" height="1414" alt="image" src="https://github.com/user-attachments/assets/39716ec6-a13e-4b2a-9d3f-4204ca953da0" />
 
 ### 3. 更换 AI 服务商
 
@@ -98,11 +101,6 @@ A: 不会。插件内置了智能增量索引，第二次运行时，**只有修
 
 **Q: 我的代码会被泄露吗？**
 A: 不会。插件只提取 identifiers（如 `getUserProfile`），打散后发送给 AI 翻译，AI 无法还原你的完整业务逻辑代码。
-
-## 🔗 相关链接
-
-- [GitHub 仓库](https://github.com/addtion99/code-decode)
-- [提交反馈 (Issues)](https://github.com/addtion99/code-decode/issues)
 
 ---
 
