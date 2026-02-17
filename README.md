@@ -1,8 +1,14 @@
 # Code Decode
 
+程序员最应该学习的语言,不是C，Rust，Java，C++，Python，Go，JavaScript，你们都很好
+但是英语更好.
+
 **Code Decode** 是一款专为开发者设计的 VS Code 源码阅读辅助插件。它能利用 AI 智能识别代码中的变量、函数、类名等标识符，并将其翻译为中文（或你指定的语言），助你快速理解复杂代码的业务含义，实现“见文知意”。
 
 > 核心理念：只翻译“标识符”，保留语法关键字（如 `if`, `for`, `return`），最大程度保持代码结构原汁原味，同时降低阅读门槛。
+**效果展示**
+> <img width="1728" height="684" alt="image" src="https://github.com/user-attachments/assets/137efe3b-d9f7-4410-a5be-fc8a2f457b9b" />
+
 
 ## 🌟 项目亮点
 
