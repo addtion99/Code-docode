@@ -1,0 +1,235 @@
+{
+  "name": "code-decode",
+  "displayName": "Code Decode",
+  "description": "Decode code intent by translating identifiers for easier reading",
+  "version": "0.0.1",
+  "publisher": "addtion99",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/addtion99/code-decode.git"
+  },
+  "homepage": "https://github.com/addtion99/code-decode#readme",
+  "bugs": {
+    "url": "https://github.com/addtion99/code-decode/issues"
+  },
+  "keywords": [
+    "translation",
+    "vscode",
+    "developer-tools",
+    "i18n",
+    "chinese",
+    "identifier",
+    "code-readability"
+  ],
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeTranslator.translateThisProject",
+        "title": "Code Decode: Translate This Project"
+      },
+      {
+        "command": "codeTranslator.translateThisFile",
+        "title": "Code Decode: Translate This File"
+      },
+      {
+        "command": "codeTranslator.setApiKey",
+        "title": "Code Decode: Set API Key"
+      },
+      {
+        "command": "codeTranslator.clearCache",
+        "title": "Code Decode: Clear Translation Cache"
+      },
+      {
+        "command": "codeTranslator.refreshTranslatedView",
+        "title": "Code Decode: Refresh Current Translated View"
+      },
+      {
+        "command": "codeTranslator.selectProvider",
+        "title": "Code Decode: Select API Provider"
+      },
+      {
+        "command": "codeTranslator.setApiProvider",
+        "title": "Code Decode: Set API Provider"
+      },
+      {
+        "command": "codeTranslator.useInlayMode",
+        "title": "Code Decode: Use Inlay Mode"
+      },
+      {
+        "command": "codeTranslator.useSplitMode",
+        "title": "Code Decode: Use Split Mode"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "codeTranslator.useSplitMode",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Code Decode",
+      "properties": {
+        "codeTranslator.provider": {
+          "type": "string",
+          "enum": [
+            "gemini",
+            "demo",
+            "openaiCompatible",
+            "openrouter",
+            "deepseek",
+            "siliconflow",
+            "moonshot",
+            "groq",
+            "together",
+            "deepl",
+            "custom"
+          ],
+          "default": "gemini",
+          "description": "Translation provider type. Default is Gemini; others are OpenAI-compatible providers."
+        },
+        "codeTranslator.apiBaseUrl": {
+          "type": "string",
+          "default": "https://generativelanguage.googleapis.com/v1beta/openai",
+          "description": "Base URL for OpenAI-compatible translation API (Gemini AI Studio by default)."
+        },
+        "codeTranslator.model": {
+          "type": "string",
+          "default": "gemini-2.5-flash-lite",
+          "description": "Model used for identifier translation."
+        },
+        "codeTranslator.sourceLanguage": {
+          "type": "string",
+          "default": "en",
+          "description": "Source language for identifiers."
+        },
+        "codeTranslator.targetLanguage": {
+          "type": "string",
+          "default": "zh-CN",
+          "description": "Target language for identifiers."
+        },
+        "codeTranslator.viewMode": {
+          "type": "string",
+          "enum": [
+            "inlay",
+            "split"
+          ],
+          "default": "inlay",
+          "description": "Display mode: inlay hints only, or translated split diff view only."
+        },
+        "codeTranslator.renderMode": {
+          "type": "string",
+          "enum": [
+            "translatedOnly",
+            "bilingual",
+            "inlay"
+          ],
+          "default": "inlay",
+          "description": "How translated identifiers are rendered."
+        },
+        "codeTranslator.skipPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "^[ijk]$",
+            "^tmp$",
+            "^ctx$",
+            "^res$"
+          ],
+          "description": "Regex patterns for identifiers to skip."
+        },
+        "codeTranslator.maxBatchTerms": {
+          "type": "number",
+          "default": 80,
+          "minimum": 1,
+          "description": "Max normalized terms per request. Larger value reduces per-request prompt overhead."
+        },
+        "codeTranslator.requestTimeoutMs": {
+          "type": "number",
+          "default": 20000,
+          "minimum": 1000,
+          "description": "Translation request timeout in milliseconds."
+        },
+        "codeTranslator.excludeGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/node_modules/**",
+            "**/.git/**",
+            "**/dist/**",
+            "**/build/**",
+            "**/out/**"
+          ],
+          "description": "Workspace globs excluded from project scan."
+        },
+        "codeTranslator.protectedTerms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "ctx",
+            "dto",
+            "http",
+            "https",
+            "json",
+            "url",
+            "id",
+            "ids"
+          ],
+          "description": "Identifier terms that must never be translated."
+        },
+        "codeTranslator.glossary": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Custom glossary map. Key can be identifier or normalized phrase; value is the desired translation."
+        },
+        "codeTranslator.forceDiffSideBySide": {
+          "type": "boolean",
+          "default": true,
+          "description": "Force translated diff view to open in side-by-side mode."
+        },
+        "codeTranslator.hideDiffOverviewRuler": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide the right-side diff overview ruler (red/green bar)."
+        },
+        "codeTranslator.hideDiffIndicators": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide diff indicators and revert icons in split diff view."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.6.0"
+  }
+}
