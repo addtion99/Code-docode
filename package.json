@@ -68,6 +68,10 @@
       {
         "command": "codeTranslator.useSplitMode",
         "title": "Code Decode: Use Split Mode"
+      },
+      {
+        "command": "codeTranslator.toggleAutoTranslate",
+        "title": "Code Decode: Auto Translate Current File"
       }
     ],
     "keybindings": [
@@ -216,6 +220,11 @@
           "type": "boolean",
           "default": true,
           "description": "Hide diff indicators and revert icons in split diff view."
+        },
+        "codeTranslator.autoTranslate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically translate files when you open them (after a short delay). Builds up translations incrementally as you browse — no need to translate the entire project."
         }
       }
     }

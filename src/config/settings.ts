@@ -30,6 +30,7 @@ export interface TranslatorSettings {
   protectedTerms: string[];
   glossary: Record<string, string>;
   hideDiffIndicators: boolean;
+  autoTranslate: boolean;
 }
 
 export const API_KEY_SECRET_KEY = 'codeTranslator.apiKey';
@@ -74,5 +75,6 @@ export function getTranslatorSettings(): TranslatorSettings {
     ]),
     glossary: config.get<Record<string, string>>('glossary', {}),
     hideDiffIndicators: config.get<boolean>('hideDiffIndicators', true),
+    autoTranslate: config.get<boolean>('autoTranslate', false),
   };
 }

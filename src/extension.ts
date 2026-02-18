@@ -14,6 +14,7 @@ import {
 } from './commands/switchViewMode';
 import { registerTranslateFileCommand } from './commands/translateFile';
 import { registerTranslateProjectCommand } from './commands/translateProject';
+import { getTranslatorSettings } from './config/settings';
 import { TranslationService } from './translation/translationService';
 import { CodeTranslatorInlayHintsProvider } from './view/inlayHintsProvider';
 import {
@@ -67,6 +68,49 @@ export function activate(context: vscode.ExtensionContext) {
     translatedContentProvider,
   );
 
+  const toggleAutoTranslateCommand = vscode.commands.registerCommand(
+    'codeTranslator.toggleAutoTranslate',
+    async () => {
+      const config = vscode.workspace.getConfiguration('codeTranslator');
+      const current = config.get<boolean>('autoTranslate', false);
+      await config.update('autoTranslate', !current, vscode.ConfigurationTarget.Global);
+      void vscode.window.showInformationMessage(
+        `Code Decode: Auto Translate ${current ? 'disabled' : 'enabled'}.`,
+      );
+    },
+  );
+
+  let autoTranslateTimer: NodeJS.Timeout | undefined;
+  const scheduleAutoTranslate = (
+    editor: vscode.TextEditor | undefined,
+  ): void => {
+    if (autoTranslateTimer) {
+      clearTimeout(autoTranslateTimer);
+      autoTranslateTimer = undefined;
+    }
+    const settings = getTranslatorSettings();
+    if (!settings.autoTranslate || !editor || editor.document.uri.scheme !== 'file') {
+      return;
+    }
+    const document = editor.document;
+    autoTranslateTimer = setTimeout(() => {
+      autoTranslateTimer = undefined;
+      void (async () => {
+        try {
+          await translationService.translateCurrentFile(document);
+          await refreshVisibleTranslatedForSource(
+            translationService,
+            translatedContentProvider,
+            document,
+          );
+        } catch {
+          // Silent failure — no API key, network error, etc.
+        }
+      })();
+    }, 2000);
+  };
+  const onEditorChanged = vscode.window.onDidChangeActiveTextEditor(scheduleAutoTranslate);
+
   const pendingRefreshTimers = new Map<string, NodeJS.Timeout>();
   const scheduleVisibleTranslatedRefresh = (
     document: vscode.TextDocument,
@@ -93,6 +137,7 @@ export function activate(context: vscode.ExtensionContext) {
   const onTextChanged = vscode.workspace.onDidChangeTextDocument((event) => {
     translationService.invalidateDocument(event.document.uri);
     scheduleVisibleTranslatedRefresh(event.document, 120);
+    scheduleAutoTranslate(vscode.window.activeTextEditor);
   });
   const onSaved = vscode.workspace.onDidSaveTextDocument((document) => {
     translationService.invalidateDocument(document.uri);
@@ -133,6 +178,10 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   const cleanupTimers = new vscode.Disposable(() => {
+    if (autoTranslateTimer) {
+      clearTimeout(autoTranslateTimer);
+      autoTranslateTimer = undefined;
+    }
     for (const timer of pendingRefreshTimers.values()) {
       clearTimeout(timer);
     }
@@ -150,6 +199,8 @@ export function activate(context: vscode.ExtensionContext) {
     useInlayModeCommand,
     useSplitModeCommand,
     refreshTranslatedViewCommand,
+    toggleAutoTranslateCommand,
+    onEditorChanged,
     onTextChanged,
     onSaved,
     onClosed,
