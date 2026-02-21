@@ -7,7 +7,10 @@
 
 > 核心理念：只翻译“标识符”，保留语法关键字（如 `if`, `for`, `return`），最大程度保持代码结构原汁原味，同时降低阅读门槛。
 **效果展示**
-> <img width="1728" height="684" alt="image" src="https://github.com/user-attachments/assets/137efe3b-d9f7-4410-a5be-fc8a2f457b9b" />
+
+<p align="center">
+  <img src="[你的图片地址](https://github.com/user-attachments/assets/137efe3b-d9f7-4410-a5be-fc8a2f457b9b)" width="100%" style="max-width: 800px;">
+</p>
 
 
 ## 🌟 项目亮点
