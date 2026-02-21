@@ -95,40 +95,6 @@
   - `bilingual`：双语对照（如 `user(用户)`）。
   - `translatedOnly`：纯译文替换。
 
-## 📦 发布 Release
-
-### 方式一：推送 tag（推荐，自动打包并发布）
-
-1. 确保 `package.json` 中 `version` 已更新（如 `0.0.1`）。
-2. 提交并推送后，打 tag 并推送：
-   ```bash
-   git tag v0.0.1
-   git push origin v0.0.1
-   ```
-3. GitHub Actions 会自动编译、打包为 `.vsix` 并创建 [Releases](https://github.com/addtion99/Code-docode/releases)，用户可在该页下载安装包。
-
-### 方式二：本地打包并发布
-
-需要 **Node.js ≥ 20**（可用 `nvm use 20`）。
-
-```bash
-# 打包并创建 Release（使用 package.json 的 version 作为 tag）
-./scripts/release.sh
-
-# 或指定 tag
-./scripts/release.sh v0.0.1
-```
-
-需已安装 [GitHub CLI](https://cli.github.com/)（`gh`）并登录，否则请到仓库 Releases 页面手动上传生成的 `.vsix`。
-
-### 仅本地打包（不发布）
-
-```bash
-npm ci
-npm run package
-# 会生成 code-decode-<version>.vsix，可在 VS Code 中“从 VSIX 安装”进行安装。
-```
-
 ## ❓ 常见问题
 
 **Q: 为什么翻译后没有反应？**
