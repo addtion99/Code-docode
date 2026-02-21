@@ -7,9 +7,16 @@ export interface TranslationRequest {
   projectContextSummary?: string;
 }
 
+export interface CommentTranslationRequest {
+  comments: string[];
+  sourceLanguage: string;
+  targetLanguage: string;
+}
+
 export interface TranslationProvider {
   readonly name: string;
   translateBatch(request: TranslationRequest): Promise<Map<string, string>>;
+  translateComments(request: CommentTranslationRequest): Promise<Map<string, string>>;
 }
 
 export interface TranslationProviderFactoryOptions {

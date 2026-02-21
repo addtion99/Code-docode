@@ -1,7 +1,7 @@
 import * as http from 'http';
 import * as https from 'https';
 import { TranslatorSettings } from '../config/settings';
-import { TranslationProvider, TranslationRequest } from './provider';
+import { CommentTranslationRequest, TranslationProvider, TranslationRequest } from './provider';
 
 function normalizeApiBaseUrl(input: string): string {
   let value = input.trim();
@@ -186,6 +186,79 @@ export class OpenAICompatibleProvider implements TranslationProvider {
       const value = rawMap[term];
       translatedMap.set(term, value ? value.trim() : term);
     }
+    return translatedMap;
+  }
+
+  public async translateComments(
+    request: CommentTranslationRequest,
+  ): Promise<Map<string, string>> {
+    if (request.comments.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const normalizedBaseUrl = normalizeApiBaseUrl(this.settings.apiBaseUrl);
+    const indexed = request.comments.map((c, i) => `[${i}] ${c}`).join('\n');
+
+    const payload = {
+      model: this.settings.model,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content:
+            `Translate code comments from ${request.sourceLanguage} to ${request.targetLanguage}. ` +
+            'Each line starts with [index]. Return every line in the same [index] format with the translated text. ' +
+            'Preserve technical terms, code references, and formatting. Do not add explanation.',
+        },
+        {
+          role: 'user',
+          content: indexed,
+        },
+      ],
+    };
+
+    const response = await postJson(
+      `${normalizedBaseUrl}/chat/completions`,
+      payload,
+      {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      this.settings.requestTimeoutMs,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw new Error(
+        `Comment translation API request failed (${response.statusCode}): ${response.body}`,
+      );
+    }
+
+    const result = JSON.parse(response.body) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+
+    const content = result.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('Comment translation API returned empty content.');
+    }
+
+    const translatedMap = new Map<string, string>();
+    const lineRegex = /\[(\d+)]\s*(.*)/g;
+    let match: RegExpExecArray | null;
+    while ((match = lineRegex.exec(content)) !== null) {
+      const idx = parseInt(match[1], 10);
+      const translatedText = match[2].trim();
+      if (idx >= 0 && idx < request.comments.length && translatedText) {
+        translatedMap.set(request.comments[idx], translatedText);
+      }
+    }
+
+    for (const comment of request.comments) {
+      if (!translatedMap.has(comment)) {
+        translatedMap.set(comment, comment);
+      }
+    }
+
     return translatedMap;
   }
 }

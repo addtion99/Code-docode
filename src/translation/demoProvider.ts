@@ -1,4 +1,4 @@
-import { TranslationProvider, TranslationRequest } from './provider';
+import { CommentTranslationRequest, TranslationProvider, TranslationRequest } from './provider';
 
 const WORD_MAP: Record<string, string> = {
   user: '用户',
@@ -110,6 +110,20 @@ export class DemoProvider implements TranslationProvider {
     const result = new Map<string, string>();
     for (const term of request.terms) {
       result.set(term, translateNormalizedTerm(term));
+    }
+    return result;
+  }
+
+  public async translateComments(
+    request: CommentTranslationRequest,
+  ): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    for (const comment of request.comments) {
+      const words = comment.split(/\s+/).filter(Boolean);
+      const translated = words
+        .map((w) => WORD_MAP[w.toLowerCase()] ?? w)
+        .join('');
+      result.set(comment, translated !== comment ? translated : `[译] ${comment}`);
     }
     return result;
   }

@@ -9,9 +9,10 @@ import {
   getTranslatorSettings,
   TranslatorSettings,
 } from '../config/settings';
+import { collectComments } from '../collector/commentCollector';
 import { collectFromSemanticTokens } from '../collector/semanticCollector';
 import { collectFromDocumentSymbolsFallback } from '../collector/symbolFallback';
-import { IdentifierOccurrence } from '../collector/types';
+import { CommentOccurrence, IdentifierOccurrence } from '../collector/types';
 import {
   buildRenderedIdentifier,
   normalizeIdentifier,
@@ -24,6 +25,8 @@ import { TranslationProvider } from './provider';
 interface DocumentTranslationState {
   occurrences: IdentifierOccurrence[];
   translationByOriginal: Map<string, string>;
+  comments: CommentOccurrence[];
+  commentTranslations: Map<string, string>;
 }
 
 export interface WorkspaceTranslationResult {
@@ -123,6 +126,8 @@ export class TranslationService {
     const reusedFiles = Math.max(0, snapshots.length - changedSnapshots.length);
     let scannedFiles = 0;
 
+    const allCommentTexts = new Set<string>();
+
     for (const snapshot of changedSnapshots) {
       const fileUri = snapshot.uri.toString();
       try {
@@ -147,8 +152,12 @@ export class TranslationService {
           snapshot.size,
           terms,
         );
+
+        const comments = collectComments(document);
+        for (const comment of comments) {
+          allCommentTexts.add(comment.text);
+        }
       } catch {
-        // Skip binary/unsupported files and keep an empty marker to avoid re-reading.
         this.workspaceIndexStore.upsertFile(
           workspaceKey,
           fileUri,
@@ -163,6 +172,7 @@ export class TranslationService {
     const uniqueTerms = Array.from(this.workspaceIndexStore.getWorkspaceTermSet(workspaceKey));
     const sentTerms = this.countMissingTerms(uniqueTerms, settings);
     await this.ensureTermTranslations(uniqueTerms);
+    await this.ensureCommentTranslations(Array.from(allCommentTexts));
 
     this.documentState.clear();
     await this.cacheStore.flush();
@@ -188,6 +198,10 @@ export class TranslationService {
     const terms = this.extractNormalizedTerms(occurrences);
     const sentTerms = this.countMissingTerms(terms, settings);
     await this.ensureTermTranslations(terms);
+
+    const comments = collectComments(document);
+    const commentTexts = Array.from(new Set(comments.map((c) => c.text)));
+    await this.ensureCommentTranslations(commentTexts);
 
     if (document.uri.scheme === 'file') {
       try {
@@ -224,33 +238,57 @@ export class TranslationService {
       : 'translatedOnly';
 
     const source = document.getText();
-    const replacementCandidates = state.occurrences
-      .map((occurrence) => {
-        const translated = state.translationByOriginal.get(occurrence.name);
-        if (!translated) {
-          return undefined;
-        }
 
-        const replacement = buildRenderedIdentifier(
-          occurrence.name,
-          this.toSafeIdentifierTranslation(translated, occurrence.name),
-          textMode,
-        );
+    const replacementCandidates: { start: number; end: number; replacement: string }[] = [];
 
-        if (replacement === occurrence.name) {
-          return undefined;
-        }
+    for (const occurrence of state.occurrences) {
+      const translated = state.translationByOriginal.get(occurrence.name);
+      if (!translated) {
+        continue;
+      }
 
-        return {
-          start: document.offsetAt(occurrence.range.start),
-          end: document.offsetAt(occurrence.range.end),
-          replacement,
-        };
-      })
-      .filter((item): item is { start: number; end: number; replacement: string } =>
-        Boolean(item),
-      )
-      .sort((a, b) => b.start - a.start);
+      const replacement = buildRenderedIdentifier(
+        occurrence.name,
+        this.toSafeIdentifierTranslation(translated, occurrence.name),
+        textMode,
+      );
+
+      if (replacement === occurrence.name) {
+        continue;
+      }
+
+      replacementCandidates.push({
+        start: document.offsetAt(occurrence.range.start),
+        end: document.offsetAt(occurrence.range.end),
+        replacement,
+      });
+    }
+
+    for (const comment of state.comments) {
+      const translated = state.commentTranslations.get(comment.text);
+      if (!translated || translated === comment.text) {
+        continue;
+      }
+
+      const contentStart = document.offsetAt(comment.contentRange.start);
+      const contentEnd = document.offsetAt(comment.contentRange.end);
+      const originalContent = source.slice(contentStart, contentEnd);
+
+      let replacement: string;
+      if (textMode === 'bilingual') {
+        replacement = `${originalContent}\n${translated}`;
+      } else {
+        replacement = ` ${translated} `;
+      }
+
+      replacementCandidates.push({
+        start: contentStart,
+        end: contentEnd,
+        replacement,
+      });
+    }
+
+    replacementCandidates.sort((a, b) => b.start - a.start);
 
     let output = source;
     let lastStart = Number.POSITIVE_INFINITY;
@@ -306,6 +344,31 @@ export class TranslationService {
       hints.push(hint);
     }
 
+    for (const comment of state.comments) {
+      if (!range.intersection(comment.range)) {
+        continue;
+      }
+
+      const translated = state.commentTranslations.get(comment.text);
+      if (!translated || translated === comment.text) {
+        continue;
+      }
+
+      const key = `comment:${comment.range.start.line}:${comment.range.start.character}`;
+      if (dedupe.has(key)) {
+        continue;
+      }
+      dedupe.add(key);
+
+      const hint = new vscode.InlayHint(
+        comment.range.end,
+        `  « ${translated} »`,
+        vscode.InlayHintKind.Parameter,
+      );
+      hint.paddingLeft = true;
+      hints.push(hint);
+    }
+
     return hints;
   }
 
@@ -333,9 +396,13 @@ export class TranslationService {
     const translationByOriginal = await this.buildOriginalToTranslationMap(
       occurrences,
     );
+    const comments = collectComments(document);
+    const commentTranslations = await this.buildCommentTranslationMap(comments);
     const state: DocumentTranslationState = {
       occurrences,
       translationByOriginal,
+      comments,
+      commentTranslations,
     };
     this.documentState.set(key, state);
     await this.cacheStore.flush();
@@ -460,6 +527,50 @@ export class TranslationService {
         projectContextSummary,
       });
       this.cacheStore.setMany(translated, settings);
+    }
+  }
+
+  private async buildCommentTranslationMap(
+    comments: CommentOccurrence[],
+  ): Promise<Map<string, string>> {
+    const settings = getTranslatorSettings();
+    const uniqueTexts = new Set<string>();
+    for (const comment of comments) {
+      uniqueTexts.add(comment.text);
+    }
+
+    await this.ensureCommentTranslations(Array.from(uniqueTexts));
+
+    const output = new Map<string, string>();
+    for (const text of uniqueTexts) {
+      const translated = this.cacheStore.getComment(text, settings);
+      if (translated) {
+        output.set(text, translated);
+      }
+    }
+    return output;
+  }
+
+  private async ensureCommentTranslations(commentTexts: string[]): Promise<void> {
+    const settings = getTranslatorSettings();
+    const missing = commentTexts.filter(
+      (text) => !this.cacheStore.getComment(text, settings),
+    );
+    if (missing.length === 0) {
+      return;
+    }
+
+    const provider = await this.buildProvider(settings);
+    const batchSize = Math.max(1, Math.floor(settings.maxBatchTerms / 4));
+
+    for (let i = 0; i < missing.length; i += batchSize) {
+      const batch = missing.slice(i, i + batchSize);
+      const translated = await provider.translateComments({
+        comments: batch,
+        sourceLanguage: settings.sourceLanguage,
+        targetLanguage: settings.targetLanguage,
+      });
+      this.cacheStore.setManyComments(translated, settings);
     }
   }
 

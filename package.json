@@ -231,9 +231,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "package": "vsce package"
+    "compile": "npx tsc -p ./",
+    "watch": "npx tsc -watch -p ./",
+    "package": "npx vsce package"
   },
   "devDependencies": {
     "@types/node": "^20",

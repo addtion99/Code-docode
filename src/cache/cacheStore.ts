@@ -66,6 +66,27 @@ export class CacheStore {
     }
   }
 
+  public getComment(commentText: string, settings: TranslatorSettings): string | undefined {
+    return this.cache.get(this.buildCommentCacheKey(commentText, settings));
+  }
+
+  public setComment(
+    commentText: string,
+    translated: string,
+    settings: TranslatorSettings,
+  ): void {
+    this.cache.set(this.buildCommentCacheKey(commentText, settings), translated);
+  }
+
+  public setManyComments(
+    entries: Map<string, string>,
+    settings: TranslatorSettings,
+  ): void {
+    for (const [commentText, translated] of entries.entries()) {
+      this.setComment(commentText, translated, settings);
+    }
+  }
+
   public async flush(): Promise<void> {
     await this.init();
     const payload: PersistedCacheShape = {
@@ -91,6 +112,17 @@ export class CacheStore {
       settings.sourceLanguage,
       settings.targetLanguage,
       normalizedTerm,
+    ].join('|');
+  }
+
+  private buildCommentCacheKey(commentText: string, settings: TranslatorSettings): string {
+    return [
+      'comment',
+      settings.provider,
+      settings.model,
+      settings.sourceLanguage,
+      settings.targetLanguage,
+      commentText,
     ].join('|');
   }
 }
