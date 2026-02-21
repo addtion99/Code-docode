@@ -8,11 +8,6 @@
 > 核心理念：只翻译“标识符”，保留语法关键字（如 `if`, `for`, `return`），最大程度保持代码结构原汁原味，同时降低阅读门槛。
 **效果展示**
 
-<p align="center">
-  <img src="[你的图片地址](https://github.com/user-attachments/assets/137efe3b-d9f7-4410-a5be-fc8a2f457b9b)" width="100%" style="max-width: 800px;">
-</p>
-
-
 ## 🌟 项目亮点
 
 - **🔍 语义级精准识别**
@@ -68,13 +63,13 @@
   - 译文以灰色虚影形式跟在变量名后面。
   - 优点：视线无需移动，沉浸式阅读。
   - _效果示例：_ `const user: 用户 = getUser: 获取用户();`
-  <img width="1820" height="1378" alt="image" src="https://github.com/user-attachments/assets/ba96eeea-8d23-4f37-9098-72de36002498" />
+  <img alt="image" src="https://github.com/user-attachments/assets/ba96eeea-8d23-4f37-9098-72de36002498" />
 
 
 - **Code Decode: Use Split Mode** (快捷键 `Ctrl+Alt+T`)
   - 自动打开右侧对比窗口，显示翻译后的伪代码。
   - 优点：源码保持纯净，适合大段代码对照理解。
-<img width="2570" height="1414" alt="image" src="https://github.com/user-attachments/assets/39716ec6-a13e-4b2a-9d3f-4204ca953da0" />
+<img  alt="image" src="https://github.com/user-attachments/assets/39716ec6-a13e-4b2a-9d3f-4204ca953da0" />
 
 ### 3. 更换 AI 服务商
 
