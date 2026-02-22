@@ -5,12 +5,22 @@ function mapSymbolKind(kind: vscode.SymbolKind): IdentifierKind | undefined {
   switch (kind) {
     case vscode.SymbolKind.Function:
     case vscode.SymbolKind.Method:
+    case vscode.SymbolKind.Constructor:
       return 'function';
     case vscode.SymbolKind.Variable:
     case vscode.SymbolKind.Constant:
     case vscode.SymbolKind.Field:
     case vscode.SymbolKind.Property:
+    case vscode.SymbolKind.EnumMember:
       return 'variable';
+    case vscode.SymbolKind.Class:
+    case vscode.SymbolKind.Interface:
+    case vscode.SymbolKind.Enum:
+    case vscode.SymbolKind.Struct:
+    case vscode.SymbolKind.TypeParameter:
+    case vscode.SymbolKind.Namespace:
+    case vscode.SymbolKind.Module:
+      return 'type';
     default:
       return undefined;
   }

@@ -46,7 +46,7 @@ export function getTranslatorSettings(): TranslatorSettings {
     model: config.get<string>('model', 'gemini-2.5-flash-lite'),
     sourceLanguage: config.get<string>('sourceLanguage', 'en'),
     targetLanguage: config.get<string>('targetLanguage', 'zh-CN'),
-    viewMode: config.get<ViewMode>('viewMode', 'inlay'),
+    viewMode: config.get<ViewMode>('viewMode', 'split'),
     renderMode: config.get<RenderMode>('renderMode', 'inlay'),
     skipPatterns: config.get<string[]>('skipPatterns', [
       '^[ijk]$',

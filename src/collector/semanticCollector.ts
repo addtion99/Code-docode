@@ -1,17 +1,37 @@
 import * as vscode from 'vscode';
 import { IdentifierKind, IdentifierOccurrence } from './types';
 
+const IGNORED_TOKEN_TYPES = new Set([
+  'comment', 'string', 'number', 'regexp', 'operator', 'keyword',
+]);
+
 function mapSemanticTypeToKind(tokenType: string): IdentifierKind | undefined {
   switch (tokenType) {
     case 'variable':
     case 'parameter':
     case 'property':
+    case 'enumMember':
       return 'variable';
     case 'function':
     case 'method':
+    case 'member':
       return 'function';
+    case 'class':
+    case 'type':
+    case 'enum':
+    case 'interface':
+    case 'namespace':
+    case 'struct':
+    case 'typeParameter':
+      return 'type';
+    case 'macro':
+    case 'decorator':
+      return 'macro';
     default:
-      return undefined;
+      if (IGNORED_TOKEN_TYPES.has(tokenType)) {
+        return undefined;
+      }
+      return 'variable';
   }
 }
 

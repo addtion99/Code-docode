@@ -41,6 +41,7 @@ async function applyDiffEditorPreferences(resource: vscode.Uri): Promise<void> {
   };
 
   await updateWithFallback('renderSideBySide', true);
+  await updateWithFallback('useInlineViewWhenSpaceIsLimited', false);
   await updateWithFallback('renderOverviewRuler', false);
   await updateWithFallback('renderIndicators', false);
   await updateWithFallback('renderMarginRevertIcon', false);

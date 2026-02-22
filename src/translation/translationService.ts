@@ -551,10 +551,29 @@ export class TranslationService {
     return output;
   }
 
+  private isCommentAlreadyInTargetLanguage(
+    text: string,
+    targetLanguage: string,
+  ): boolean {
+    const lang = targetLanguage.toLowerCase();
+    if (lang.startsWith('zh')) {
+      return /[\u4e00-\u9fff]/.test(text);
+    }
+    if (lang === 'ja') {
+      return /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fff]/.test(text);
+    }
+    if (lang === 'ko') {
+      return /[\uac00-\ud7af]/.test(text);
+    }
+    return false;
+  }
+
   private async ensureCommentTranslations(commentTexts: string[]): Promise<void> {
     const settings = getTranslatorSettings();
     const missing = commentTexts.filter(
-      (text) => !this.cacheStore.getComment(text, settings),
+      (text) =>
+        !this.cacheStore.getComment(text, settings) &&
+        !this.isCommentAlreadyInTargetLanguage(text, settings.targetLanguage),
     );
     if (missing.length === 0) {
       return;

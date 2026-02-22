@@ -54,7 +54,11 @@ export function shouldSkipIdentifier(
     return true;
   }
 
-  if (/^[A-Z0-9_]{1,3}$/.test(identifier)) {
+  if (/^[A-Z0-9_]{1,2}$/.test(identifier)) {
+    return true;
+  }
+
+  if (/^__/.test(identifier)) {
     return true;
   }
 

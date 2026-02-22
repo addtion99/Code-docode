@@ -129,7 +129,7 @@
             "inlay",
             "split"
           ],
-          "default": "inlay",
+          "default": "split",
           "description": "Display mode: inlay hints only, or translated split diff view only."
         },
         "codeTranslator.renderMode": {

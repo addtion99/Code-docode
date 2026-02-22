@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-export type IdentifierKind = 'variable' | 'function';
+export type IdentifierKind = 'variable' | 'function' | 'type' | 'macro';
 
 export interface IdentifierOccurrence {
   name: string;
