@@ -12,6 +12,10 @@ import {
   registerUseInlayModeCommand,
   registerUseSplitModeCommand,
 } from './commands/switchViewMode';
+import {
+  applyGhostTheme,
+  registerThemeCommands,
+} from './commands/configureTheme';
 import { registerTranslateFileCommand } from './commands/translateFile';
 import { registerTranslateProjectCommand } from './commands/translateProject';
 import { getTranslatorSettings } from './config/settings';
@@ -63,6 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
     translationService,
     translatedContentProvider,
   );
+  const themeCommands = registerThemeCommands();
   const refreshTranslatedViewCommand = registerRefreshTranslatedViewCommand(
     translationService,
     translatedContentProvider,
@@ -189,6 +194,15 @@ export function activate(context: vscode.ExtensionContext) {
     pendingRefreshTimers.clear();
   });
 
+  // Automatically apply ghost theme on first activation
+  void (async () => {
+    const hasApplied = context.globalState.get<boolean>('codeTranslator.themeApplied', false);
+    if (!hasApplied) {
+      await applyGhostTheme();
+      await context.globalState.update('codeTranslator.themeApplied', true);
+    }
+  })();
+
   context.subscriptions.push(
     translatedContentProviderDisposable,
     inlayDisposable,
@@ -199,6 +213,7 @@ export function activate(context: vscode.ExtensionContext) {
     selectProviderCommand,
     useInlayModeCommand,
     useSplitModeCommand,
+    ...themeCommands,
     refreshTranslatedViewCommand,
     toggleAutoTranslateCommand,
     onEditorChanged,

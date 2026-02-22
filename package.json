@@ -2,7 +2,7 @@
   "name": "code-decode",
   "displayName": "Code Decode",
   "description": "Decode code intent by translating identifiers for easier reading",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "addtion99",
   "license": "MIT",
   "repository": {
@@ -72,6 +72,14 @@
       {
         "command": "codeTranslator.useSplitMode",
         "title": "Code Decode:3 Use Split Mode"
+      },
+      {
+        "command": "codeTranslator.applyGhostTheme",
+        "title": "Code Decode: Apply Ghost Theme Colors"
+      },
+      {
+        "command": "codeTranslator.restoreDefaultTheme",
+        "title": "Code Decode: Restore Default Theme Colors"
       }
     ],
     "keybindings": [

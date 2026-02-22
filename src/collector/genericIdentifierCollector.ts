@@ -93,9 +93,15 @@ export function collectFromGenericRegex(
       if (commentRanges.length > 0 && isRangeInAny(range, commentRanges)) {
         continue;
       }
+
+      // Heuristic: check if followed by optional whitespace then '('
+      const afterIndex = match.index + name.length;
+      const restOfLine = lineWithoutStrings.substring(afterIndex);
+      const isFunction = /^\s*\(/.test(restOfLine);
+
       results.push({
         name,
-        kind: 'variable',
+        kind: isFunction ? 'function' : 'variable',
         range,
       });
     }

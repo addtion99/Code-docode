@@ -502,8 +502,10 @@ export class TranslationService {
 
       const hint = new vscode.InlayHint(
         occurrence.range.end,
-        `: ${safeTranslation}`,
-        vscode.InlayHintKind.Type,
+        safeTranslation,
+        occurrence.kind === 'function'
+          ? vscode.InlayHintKind.Parameter
+          : vscode.InlayHintKind.Type,
       );
       hint.paddingLeft = true;
       hints.push(hint);
@@ -528,7 +530,7 @@ export class TranslationService {
       const hint = new vscode.InlayHint(
         comment.range.end,
         `  « ${translated} »`,
-        vscode.InlayHintKind.Parameter,
+        vscode.InlayHintKind.Type,
       );
       hint.paddingLeft = true;
       hints.push(hint);
