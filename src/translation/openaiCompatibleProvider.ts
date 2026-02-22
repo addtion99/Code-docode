@@ -137,7 +137,7 @@ export class OpenAICompatibleProvider implements TranslationProvider {
         {
           role: 'system',
           content:
-            'Translate programming identifier terms into natural target-language phrases. Do not keep underscores or case boundaries in the translation; output a human-readable phrase (no code formatting). Keep abbreviations and meaningless tokens unchanged only when they do not affect the meaning. Example: "max buffer size" → "最大缓冲区大小". Output strictly as TSV lines: source<TAB>target.',
+            'You are translating programming identifiers (variables, functions, classes, macros). Translate each term into Chinese and join translated word segments with underscores. Preserve meaningless prefixes (e.g. YY_, XX_) and keep them unchanged at the start. Avoid partial translations like "CHECK_valid"; translate all meaningful parts. Examples: "YY_scan_string" → "YY_扫描_字符串", "max buffer size" → "最大_缓冲区_大小". Output strictly as TSV lines: source<TAB>target.',
         },
         {
           role: 'user',
@@ -147,7 +147,7 @@ export class OpenAICompatibleProvider implements TranslationProvider {
             request.projectContextSummary
               ? `project_context=${request.projectContextSummary}`
               : 'project_context=',
-            'rules=translate_word_segments_only;identifier_only;no_explanation',
+            'rules=translate_word_segments_only;identifier_only;no_explanation;join_with_underscore',
             'terms:',
             ...request.terms,
           ].join('\n'),

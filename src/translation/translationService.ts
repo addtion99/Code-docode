@@ -83,7 +83,9 @@ const FALLBACK_WORD_MAP = new Map<string, string>([
   ['check', '检查'],
   ['valid', '有效'],
   ['user', '用户'],
+  ['username', '用户名'],
   ['profile', '资料'],
+  ['userprofile', '用户资料'],
   ['data', '数据'],
   ['process', '处理'],
   ['current', '当前'],
@@ -1028,11 +1030,7 @@ export class TranslationService {
   }
 
   private joinTranslatedParts(parts: string[]): string {
-    if (parts.length === 0) {
-      return '';
-    }
-    const hasAscii = parts.some((part) => /[A-Za-z0-9]/.test(part));
-    return hasAscii ? parts.join('_') : parts.join('');
+    return parts.join('_');
   }
 
   private isKeyword(identifier: string): boolean {

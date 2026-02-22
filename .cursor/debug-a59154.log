@@ -89,3 +89,7 @@
 {"sessionId":"a59154","location":"openSplitView.ts:diff","message":"contentProvider 已更新，即将执行 vscode.diff","data":{"step":"split2"},"timestamp":1771759679207,"hypothesisId":"flow"}
 {"sessionId":"a59154","location":"openSplitView.ts:getTranslatedText","message":"openTranslatedSplitView 调用 getTranslatedDocumentText","data":{"step":"split1"},"timestamp":1771760157287,"hypothesisId":"flow"}
 {"sessionId":"a59154","location":"openSplitView.ts:diff","message":"contentProvider 已更新，即将执行 vscode.diff","data":{"step":"split2"},"timestamp":1771760157354,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"openSplitView.ts:getTranslatedText","message":"openTranslatedSplitView 调用 getTranslatedDocumentText","data":{"step":"split1"},"timestamp":1771760504811,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"openSplitView.ts:diff","message":"contentProvider 已更新，即将执行 vscode.diff","data":{"step":"split2"},"timestamp":1771760505270,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"openSplitView.ts:getTranslatedText","message":"openTranslatedSplitView 调用 getTranslatedDocumentText","data":{"step":"split1"},"timestamp":1771760540269,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"openSplitView.ts:diff","message":"contentProvider 已更新，即将执行 vscode.diff","data":{"step":"split2"},"timestamp":1771760540300,"hypothesisId":"flow"}
