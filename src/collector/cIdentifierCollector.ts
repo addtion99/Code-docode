@@ -23,6 +23,7 @@ const C_CPP_KEYWORDS = new Set([
 
 const IDENTIFIER_REGEX = /[A-Za-z_][A-Za-z0-9_]*/g;
 const PREPROCESSOR_SKIP_LINE_DIRECTIVES = new Set(['include']);
+const MACRO_REGEX = /\b[A-Z][A-Z0-9_]{2,}\b/g;
 
 /**
  * 去掉一行中双引号字符串内容，避免在字符串字面量内误识别标识符。
@@ -122,6 +123,55 @@ export interface CollectFromCRawOptions {
    * 若提供，则用这些区间过滤，不再使用内置 C_CPP_KEYWORDS 表。
    */
   semanticKeywordRanges?: vscode.Range[];
+}
+
+/**
+ * 仅从 C/C++ 预处理行中收集全大写宏标识符（补充 LSP 未覆盖的宏定义）。
+ */
+export function collectFromCMacroLines(
+  document: vscode.TextDocument,
+): IdentifierOccurrence[] {
+  const results: IdentifierOccurrence[] = [];
+
+  for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex += 1) {
+    const line = document.lineAt(lineIndex);
+    const lineText = line.text;
+    if (!isPreprocessorLine(lineText)) {
+      continue;
+    }
+
+    if (/^\s*#\s*include\b/.test(lineText)) {
+      continue;
+    }
+
+    const lineNoComments = stripLineComments(lineText);
+    const lineWithoutStrings = stripDoubleQuotedStrings(lineNoComments);
+
+    const directiveMatch = lineWithoutStrings.match(IDENTIFIER_REGEX);
+    const scanStart =
+      directiveMatch && directiveMatch.index !== undefined
+        ? directiveMatch.index + directiveMatch[0].length
+        : 0;
+    const scanText = lineWithoutStrings.slice(scanStart);
+
+    MACRO_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = MACRO_REGEX.exec(scanText)) !== null) {
+      const name = match[0];
+      const startChar = scanStart + match.index;
+      const range = new vscode.Range(
+        new vscode.Position(lineIndex, startChar),
+        new vscode.Position(lineIndex, startChar + name.length),
+      );
+      results.push({
+        name,
+        kind: 'macro',
+        range,
+      });
+    }
+  }
+
+  return results;
 }
 
 /**

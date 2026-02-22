@@ -9,11 +9,10 @@ import {
   getTranslatorSettings,
   TranslatorSettings,
 } from '../config/settings';
-import { collectFromCRaw } from '../collector/cIdentifierCollector';
+import { collectFromCMacroLines } from '../collector/cIdentifierCollector';
 import { collectComments } from '../collector/commentCollector';
 import {
   collectFromSemanticTokens,
-  getSemanticKeywordRanges,
 } from '../collector/semanticCollector';
 import { collectFromDocumentSymbolsFallback } from '../collector/symbolFallback';
 import {
@@ -28,6 +27,7 @@ import {
   shouldSkipIdentifier,
 } from '../naming/normalize';
 import { DemoProvider } from './demoProvider';
+import { DeepSeekProvider } from './deepseekProvider';
 import { OpenAICompatibleProvider } from './openaiCompatibleProvider';
 import { TranslationProvider } from './provider';
 
@@ -39,6 +39,30 @@ interface DocumentTranslationState {
   stringLiterals: StringLiteralOccurrence[];
   stringLiteralTranslations: Map<string, string>;
 }
+
+const COMMON_KEYWORDS = new Set([
+  'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'default',
+  'break', 'continue', 'return', 'goto',
+  'class', 'struct', 'enum', 'interface', 'namespace', 'function', 'def', 'lambda',
+  'var', 'let', 'const', 'static', 'public', 'private', 'protected',
+  'export', 'import', 'from', 'as',
+  'try', 'catch', 'finally', 'throw', 'throws', 'new', 'delete', 'this', 'super',
+  'true', 'false', 'null', 'undefined', 'void',
+  'int', 'float', 'double', 'char', 'bool', 'boolean', 'long', 'short', 'signed', 'unsigned',
+  'package', 'include', 'define', 'endif', 'ifdef', 'ifndef', 'elif',
+  'using', 'typedef', 'template', 'typename', 'operator', 'extends', 'implements',
+  'yield', 'await', 'async', 'sizeof',
+]);
+
+const DEFAULT_IDENTIFIER_BLACKLIST = new Set([
+  'main',
+  'tostring',
+  'args',
+  'init',
+  'constructor',
+  'valueof',
+  'hashcode',
+]);
 
 export interface WorkspaceTranslationResult {
   files: number;
@@ -507,25 +531,29 @@ export class TranslationService {
   ): Promise<IdentifierOccurrence[]> {
     const langId = document.languageId;
     let occurrences: IdentifierOccurrence[];
-    let collectMethod: string;
 
     if (langId === 'c' || langId === 'cpp') {
-      // C/C++：用正则收集标识符，关键字由 VS Code 的 Semantic Tokens 判定（与着色一致），无语义时回退到内置关键字表
-      const semanticKeywordRanges = await getSemanticKeywordRanges(document);
-      occurrences = collectFromCRaw(document, { semanticKeywordRanges });
-      collectMethod = 'collectFromCRaw';
+      const symbolOccurrences =
+        await collectFromDocumentSymbolsFallback(document);
+      const semanticOccurrences =
+        symbolOccurrences.length === 0
+          ? await collectFromSemanticTokens(document)
+          : [];
+      const macroOccurrences = collectFromCMacroLines(document);
+      occurrences = [
+        ...symbolOccurrences,
+        ...semanticOccurrences,
+        ...macroOccurrences,
+      ];
     } else {
-      occurrences = await collectFromSemanticTokens(document);
-      if (occurrences.length === 0) {
-        occurrences = await collectFromDocumentSymbolsFallback(document);
-        collectMethod = 'collectFromDocumentSymbolsFallback';
-      } else {
-        collectMethod = 'collectFromSemanticTokens';
-      }
+      const symbolOccurrences =
+        await collectFromDocumentSymbolsFallback(document);
+      const semanticOccurrences =
+        symbolOccurrences.length === 0
+          ? await collectFromSemanticTokens(document)
+          : [];
+      occurrences = [...symbolOccurrences, ...semanticOccurrences];
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:collectOccurrences',message:'collectOccurrences 使用的收集方式',data:{langId,collectMethod,rawCount:occurrences.length},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
-    // #endregion
 
     const dedupe = new Map<string, IdentifierOccurrence>();
     for (const occurrence of occurrences) {
@@ -546,7 +574,11 @@ export class TranslationService {
     const glossary = this.buildGlossaryMap(settings.glossary);
     const terms = new Set<string>();
     for (const occurrence of occurrences) {
-      if (shouldSkipIdentifier(occurrence.name, skipRegexes)) {
+      if (
+        shouldSkipIdentifier(occurrence.name, skipRegexes) ||
+        this.isKeyword(occurrence.name) ||
+        this.isBlacklistedIdentifier(occurrence.name)
+      ) {
         continue;
       }
       const normalized = normalizeIdentifier(occurrence.name).normalized;
@@ -578,7 +610,11 @@ export class TranslationService {
     const terms = new Set<string>();
 
     for (const occurrence of occurrences) {
-      if (shouldSkipIdentifier(occurrence.name, skipRegexes)) {
+      if (
+        shouldSkipIdentifier(occurrence.name, skipRegexes) ||
+        this.isKeyword(occurrence.name) ||
+        this.isBlacklistedIdentifier(occurrence.name)
+      ) {
         continue;
       }
       const normalized = normalizeIdentifier(occurrence.name).normalized;
@@ -780,9 +816,17 @@ export class TranslationService {
     switch (settings.provider) {
       case 'demo':
         return new DemoProvider();
+      case 'deepseek': {
+        const apiKey = await this.context.secrets.get(API_KEY_SECRET_KEY);
+        if (!apiKey) {
+          throw new Error(
+            'Missing API key. Run "Code Translator: Set API Key" first.',
+          );
+        }
+        return new DeepSeekProvider(settings, apiKey);
+      }
       case 'gemini':
       case 'openrouter':
-      case 'deepseek':
       case 'siliconflow':
       case 'moonshot':
       case 'groq':
@@ -907,6 +951,16 @@ export class TranslationService {
     }
 
     return merged;
+  }
+
+  private isKeyword(identifier: string): boolean {
+    return COMMON_KEYWORDS.has(identifier.toLowerCase());
+  }
+
+  private isBlacklistedIdentifier(identifier: string): boolean {
+    const normalized = normalizeIdentifier(identifier).normalized;
+    const compact = normalized.replace(/\s+/g, '').toLowerCase();
+    return DEFAULT_IDENTIFIER_BLACKLIST.has(compact);
   }
 
   private shouldTranslateComments(): boolean {

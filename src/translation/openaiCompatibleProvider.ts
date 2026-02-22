@@ -114,7 +114,7 @@ async function postJson(
 }
 
 export class OpenAICompatibleProvider implements TranslationProvider {
-  public readonly name = 'openaiCompatible';
+  public readonly name: string = 'openaiCompatible';
 
   public constructor(
     private readonly settings: TranslatorSettings,

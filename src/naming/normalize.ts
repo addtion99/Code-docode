@@ -64,6 +64,10 @@ export function shouldSkipIdentifier(
     return true;
   }
 
+  if (identifier.length < 3) {
+    return true;
+  }
+
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(identifier)) {
     return true;
   }
