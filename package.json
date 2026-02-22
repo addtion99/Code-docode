@@ -34,44 +34,44 @@
   "contributes": {
     "commands": [
       {
-        "command": "codeTranslator.translateThisProject",
-        "title": "Code Decode: Translate This Project"
-      },
-      {
-        "command": "codeTranslator.translateThisFile",
-        "title": "Code Decode: Translate This File"
-      },
-      {
-        "command": "codeTranslator.setApiKey",
-        "title": "Code Decode: Set API Key"
-      },
-      {
         "command": "codeTranslator.clearCache",
-        "title": "Code Decode: Clear Translation Cache"
+        "title": "Code Decode:0 Clear Translation Cache"
       },
       {
         "command": "codeTranslator.refreshTranslatedView",
-        "title": "Code Decode: Refresh Current Translated View"
+        "title": "Code Decode:0 Refresh Current Translated View"
+      },
+      {
+        "command": "codeTranslator.setApiKey",
+        "title": "Code Decode:1 Set API Key"
       },
       {
         "command": "codeTranslator.selectProvider",
-        "title": "Code Decode: Select API Provider"
+        "title": "Code Decode:1 Select API Provider"
       },
       {
         "command": "codeTranslator.setApiProvider",
-        "title": "Code Decode: Set API Provider"
+        "title": "Code Decode:1 Set API Provider"
       },
       {
-        "command": "codeTranslator.useInlayMode",
-        "title": "Code Decode: Use Inlay Mode"
+        "command": "codeTranslator.translateThisProject",
+        "title": "Code Decode:2 Translate This Project"
       },
       {
-        "command": "codeTranslator.useSplitMode",
-        "title": "Code Decode: Use Split Mode"
+        "command": "codeTranslator.translateThisFile",
+        "title": "Code Decode:2 Translate This File"
       },
       {
         "command": "codeTranslator.toggleAutoTranslate",
-        "title": "Code Decode: Auto Translate Current File"
+        "title": "Code Decode:2 Auto Translate Current File"
+      },
+      {
+        "command": "codeTranslator.useInlayMode",
+        "title": "Code Decode:3 Use Inlay Mode"
+      },
+      {
+        "command": "codeTranslator.useSplitMode",
+        "title": "Code Decode:3 Use Split Mode"
       }
     ],
     "keybindings": [
