@@ -15,6 +15,7 @@ import {
   collectFromSemanticTokens,
 } from '../collector/semanticCollector';
 import { collectFromDocumentSymbolsFallback } from '../collector/symbolFallback';
+import { collectFromGenericRegex } from '../collector/genericIdentifierCollector';
 import {
   CommentOccurrence,
   IdentifierOccurrence,
@@ -62,6 +63,43 @@ const DEFAULT_IDENTIFIER_BLACKLIST = new Set([
   'constructor',
   'valueof',
   'hashcode',
+]);
+
+const FALLBACK_WORD_MAP = new Map<string, string>([
+  ['max', '最大'],
+  ['no', '不'],
+  ['scan', '扫描'],
+  ['string', '字符串'],
+  ['use', '使用'],
+  ['protos', '原型'],
+  ['proto', '原型'],
+  ['str', '字符串'],
+  ['bytes', '字节'],
+  ['byte', '字节'],
+  ['buffer', '缓冲区'],
+  ['state', '状态'],
+  ['comment', '注释'],
+  ['size', '大小'],
+  ['check', '检查'],
+  ['valid', '有效'],
+  ['user', '用户'],
+  ['profile', '资料'],
+  ['data', '数据'],
+  ['process', '处理'],
+  ['current', '当前'],
+  ['index', '索引'],
+  ['success', '成功'],
+  ['flag', '标记'],
+  ['retry', '重试'],
+  ['count', '次数'],
+  ['temp', '临时'],
+  ['value', '值'],
+  ['active', '激活'],
+  ['name', '名称'],
+  ['id', 'ID'],
+  ['input', '输入'],
+  ['putchar', '输出字符'],
+  ['unput', '退回'],
 ]);
 
 export interface WorkspaceTranslationResult {
@@ -535,24 +573,27 @@ export class TranslationService {
     if (langId === 'c' || langId === 'cpp') {
       const symbolOccurrences =
         await collectFromDocumentSymbolsFallback(document);
-      const semanticOccurrences =
-        symbolOccurrences.length === 0
-          ? await collectFromSemanticTokens(document)
-          : [];
+      const semanticOccurrences = await collectFromSemanticTokens(document);
+      const fallbackOccurrences =
+        semanticOccurrences.length === 0 ? collectFromGenericRegex(document) : [];
       const macroOccurrences = collectFromCMacroLines(document);
       occurrences = [
         ...symbolOccurrences,
         ...semanticOccurrences,
+        ...fallbackOccurrences,
         ...macroOccurrences,
       ];
     } else {
       const symbolOccurrences =
         await collectFromDocumentSymbolsFallback(document);
-      const semanticOccurrences =
-        symbolOccurrences.length === 0
-          ? await collectFromSemanticTokens(document)
-          : [];
-      occurrences = [...symbolOccurrences, ...semanticOccurrences];
+      const semanticOccurrences = await collectFromSemanticTokens(document);
+      const fallbackOccurrences =
+        semanticOccurrences.length === 0 ? collectFromGenericRegex(document) : [];
+      occurrences = [
+        ...symbolOccurrences,
+        ...semanticOccurrences,
+        ...fallbackOccurrences,
+      ];
     }
 
     const dedupe = new Map<string, IdentifierOccurrence>();
@@ -931,17 +972,26 @@ export class TranslationService {
     }
 
     const { prefix } = normalizeIdentifier(fallbackOriginal);
+    if (!this.containsCjk(trimmed)) {
+      const fallback = this.buildFallbackIdentifierTranslation(fallbackOriginal);
+      if (fallback) {
+        return fallback;
+      }
+    }
     const rawParts = trimmed.match(/[\p{L}\p{N}_$]+/gu) ?? [];
     const parts = rawParts
       .flatMap((part) => part.split(/_+/))
       .map((part) => part.trim())
       .filter(Boolean);
-    let merged = parts.join('_');
+    let merged = this.joinTranslatedParts(parts);
     if (!merged) {
       return fallbackOriginal;
     }
 
     if (prefix) {
+      if (merged.toLowerCase().startsWith(prefix.toLowerCase())) {
+        return merged;
+      }
       return `${prefix}${merged}`;
     }
 
@@ -951,6 +1001,38 @@ export class TranslationService {
     }
 
     return merged;
+  }
+
+  private containsCjk(text: string): boolean {
+    return /[\p{Script=Han}]/u.test(text);
+  }
+
+  private buildFallbackIdentifierTranslation(
+    identifier: string,
+  ): string | undefined {
+    const normalized = normalizeIdentifier(identifier);
+    if (normalized.parts.length === 0) {
+      return undefined;
+    }
+    const translatedParts = normalized.parts.map(
+      (part) => FALLBACK_WORD_MAP.get(part) ?? part,
+    );
+    const changed = translatedParts.some(
+      (part, idx) => part !== normalized.parts[idx],
+    );
+    if (!changed) {
+      return undefined;
+    }
+    const merged = this.joinTranslatedParts(translatedParts);
+    return normalized.prefix ? `${normalized.prefix}${merged}` : merged;
+  }
+
+  private joinTranslatedParts(parts: string[]): string {
+    if (parts.length === 0) {
+      return '';
+    }
+    const hasAscii = parts.some((part) => /[A-Za-z0-9]/.test(part));
+    return hasAscii ? parts.join('_') : parts.join('');
   }
 
   private isKeyword(identifier: string): boolean {
