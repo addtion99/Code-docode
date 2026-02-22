@@ -128,3 +128,15 @@
 {"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:afterInit","message":"cacheStore/workspaceIndexStore init 完成","data":{"step":"T2"},"timestamp":1771762745165,"hypothesisId":"flow"}
 {"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:afterCollect","message":"collectOccurrences 完成","data":{"step":"T3","occurrencesCount":28},"timestamp":1771762751151,"hypothesisId":"flow"}
 {"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:afterExtract","message":"extractNormalizedTerms 完成","data":{"step":"T4","termsCount":18},"timestamp":1771762751154,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translateFile.ts:command","message":"Translate This File 命令触发","data":{"step":1},"timestamp":1771763606655,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:start","message":"translateCurrentFile 开始","data":{"step":"T1","uri":"file:///Users/add/code/test/lex.yy.c","languageId":"c"},"timestamp":1771763606658,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:afterInit","message":"cacheStore/workspaceIndexStore init 完成","data":{"step":"T2"},"timestamp":1771763607028,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:afterCollect","message":"collectOccurrences 完成","data":{"step":"T3","occurrencesCount":49},"timestamp":1771763607052,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:afterExtract","message":"extractNormalizedTerms 完成","data":{"step":"T4","termsCount":13},"timestamp":1771763607056,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:afterEnsureTerms","message":"ensureTermTranslations 完成","data":{"step":"T5","sentTerms":0},"timestamp":1771763607058,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translationService.ts:translateCurrentFile:return","message":"translateCurrentFile 即将返回","data":{"step":"T8","terms":13,"sentTerms":0},"timestamp":1771763607358,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translateFile.ts:afterTranslate","message":"translateCurrentFile 完成，准备展示结果","data":{"step":2,"terms":13,"sentTerms":0},"timestamp":1771763607360,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"showTranslatedResult.ts:entry","message":"showTranslatedResultForActiveEditor 进入","data":{"step":"S1"},"timestamp":1771763607362,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"translateFile.ts:afterShowResult","message":"showTranslatedResultForActiveEditor 完成","data":{"step":3},"timestamp":1771763607365,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"openSplitView.ts:getTranslatedText","message":"openTranslatedSplitView 调用 getTranslatedDocumentText","data":{"step":"split1"},"timestamp":1771763664096,"hypothesisId":"flow"}
+{"sessionId":"a59154","location":"openSplitView.ts:diff","message":"contentProvider 已更新，即将执行 vscode.diff","data":{"step":"split2"},"timestamp":1771763664111,"hypothesisId":"flow"}

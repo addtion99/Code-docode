@@ -141,7 +141,25 @@ export class OpenAICompatibleProvider implements TranslationProvider {
         {
           role: 'system',
           content:
-            'You are translating programming identifiers (variables, functions, classes, macros). Translate each term into Chinese and join translated word segments with underscores. Preserve meaningless prefixes (e.g. YY_, XX_) and keep them unchanged at the start. Avoid partial translations like "CHECK_valid"; translate all meaningful parts. Examples: "YY_scan_string" → "YY_扫描_字符串", "max buffer size" → "最大_缓冲区_大小". Output strictly as TSV lines: source<TAB>target.翻译为中文',
+            'You are translating the variables and functions in the code.\n' +
+            '# Role\n' +
+            'Technical Translator (English->Chinese Simplified)\n' +
+            '\n' +
+            '# Rules\n' +
+            '1. **Format Mirroring**:\n' +
+            '   - If input has `_` (snake_case), output MUST use `_` to separate Chinese words.\n' +
+            '   - Example: `request_timeout` -> `请求_超时`\n' +
+            '   - Example: `MAX_BUFFER_SIZE` -> `最大_缓冲区_大小`\n' +
+            '2. **Abbreviation**:\n' +
+            '   - `cnt`->`计数`, `ptr`->`指针`, `tmp`->`临时`, `idx`->`索引`\n' +
+            '3. **No Code Block**: Output raw TSV only. No ```tsv.\n' +
+            '4. **Output Format**: `Original\\tTranslation`\n' +
+            '\n' +
+            '# Examples\n' +
+            'user_id\t用户_ID\n' +
+            'get_user_info\t获取_用户_信息\n' +
+            'MAX_RETRY_COUNT\t最大_重试_次数\n' +
+            'calculatePrice\t计算价格',
         },
         {
           role: 'user',
