@@ -1,7 +1,11 @@
 import * as http from 'http';
 import * as https from 'https';
 import { TranslatorSettings } from '../config/settings';
-import { CommentTranslationRequest, TranslationProvider, TranslationRequest } from './provider';
+import {
+  CommentTranslationRequest,
+  TranslationProvider,
+  TranslationRequest,
+} from './provider';
 
 function normalizeApiBaseUrl(input: string): string {
   let value = input.trim();
@@ -137,7 +141,7 @@ export class OpenAICompatibleProvider implements TranslationProvider {
         {
           role: 'system',
           content:
-            'You are translating programming identifiers (variables, functions, classes, macros). Translate each term into Chinese and join translated word segments with underscores. Preserve meaningless prefixes (e.g. YY_, XX_) and keep them unchanged at the start. Avoid partial translations like "CHECK_valid"; translate all meaningful parts. Examples: "YY_scan_string" → "YY_扫描_字符串", "max buffer size" → "最大_缓冲区_大小". Output strictly as TSV lines: source<TAB>target.',
+            'You are translating programming identifiers (variables, functions, classes, macros). Translate each term into Chinese and join translated word segments with underscores. Preserve meaningless prefixes (e.g. YY_, XX_) and keep them unchanged at the start. Avoid partial translations like "CHECK_valid"; translate all meaningful parts. Examples: "YY_scan_string" → "YY_扫描_字符串", "max buffer size" → "最大_缓冲区_大小". Output strictly as TSV lines: source<TAB>target.翻译为中文',
         },
         {
           role: 'user',
