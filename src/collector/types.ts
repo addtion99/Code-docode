@@ -13,3 +13,9 @@ export interface CommentOccurrence {
   range: vscode.Range;
   contentRange: vscode.Range;
 }
+
+export interface StringLiteralOccurrence {
+  text: string;
+  range: vscode.Range;
+  contentRange: vscode.Range;
+}

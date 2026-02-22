@@ -60,6 +60,13 @@ const PRESETS: ProviderPreset[] = [
     model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
   },
   {
+    id: 'zhipu',
+    label: '智谱 GLM-4',
+    description: '智谱AI开放平台 GLM-4 系列',
+    apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    model: 'glm-4-flash',
+  },
+  {
     id: 'openaiCompatible',
     label: 'OpenAI Compatible (通用)',
     description: '自行填写 baseUrl/model',

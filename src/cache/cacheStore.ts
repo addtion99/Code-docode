@@ -125,4 +125,36 @@ export class CacheStore {
       commentText,
     ].join('|');
   }
+
+  public getStringLiteral(literalText: string, settings: TranslatorSettings): string | undefined {
+    return this.cache.get(this.buildStringLiteralCacheKey(literalText, settings));
+  }
+
+  public setStringLiteral(
+    literalText: string,
+    translated: string,
+    settings: TranslatorSettings,
+  ): void {
+    this.cache.set(this.buildStringLiteralCacheKey(literalText, settings), translated);
+  }
+
+  public setManyStringLiterals(
+    entries: Map<string, string>,
+    settings: TranslatorSettings,
+  ): void {
+    for (const [literalText, translated] of entries.entries()) {
+      this.setStringLiteral(literalText, translated, settings);
+    }
+  }
+
+  private buildStringLiteralCacheKey(literalText: string, settings: TranslatorSettings): string {
+    return [
+      'string',
+      settings.provider,
+      settings.model,
+      settings.sourceLanguage,
+      settings.targetLanguage,
+      literalText,
+    ].join('|');
+  }
 }

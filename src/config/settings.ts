@@ -10,6 +10,7 @@ export type ProviderType =
   | 'moonshot'
   | 'groq'
   | 'together'
+  | 'zhipu'
   | 'custom'
   | 'demo'
   | 'deepl';

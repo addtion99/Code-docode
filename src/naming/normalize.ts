@@ -2,6 +2,7 @@ export interface NormalizedIdentifier {
   original: string;
   normalized: string;
   parts: string[];
+  prefix: string;
 }
 
 function stripHungarianPrefix(value: string): string {
@@ -14,10 +15,25 @@ function stripHungarianPrefix(value: string): string {
   return value;
 }
 
+function extractPreservedPrefix(identifier: string): {
+  prefix: string;
+  remainder: string;
+} {
+  const withoutHungarian = stripHungarianPrefix(identifier).replace(/^_+/, '');
+  const match = withoutHungarian.match(/^([A-Z0-9]{2,})(_+)/);
+  if (!match) {
+    return { prefix: '', remainder: withoutHungarian };
+  }
+  const prefix = match[1] + match[2];
+  return {
+    prefix,
+    remainder: withoutHungarian.slice(prefix.length),
+  };
+}
+
 export function splitIdentifier(identifier: string): string[] {
-  const trimmed = stripHungarianPrefix(identifier)
-    .replace(/^_+/, '')
-    .replace(/[_-]+/g, ' ');
+  const { remainder } = extractPreservedPrefix(identifier);
+  const trimmed = remainder.replace(/[_-]+/g, ' ');
 
   const withWordBoundaries = trimmed
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -30,11 +46,13 @@ export function splitIdentifier(identifier: string): string[] {
 }
 
 export function normalizeIdentifier(identifier: string): NormalizedIdentifier {
+  const { prefix } = extractPreservedPrefix(identifier);
   const parts = splitIdentifier(identifier);
   return {
     original: identifier,
     normalized: parts.join(' ').trim(),
     parts,
+    prefix,
   };
 }
 

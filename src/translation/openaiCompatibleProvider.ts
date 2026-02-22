@@ -137,7 +137,7 @@ export class OpenAICompatibleProvider implements TranslationProvider {
         {
           role: 'system',
           content:
-            'Translate programming identifier terms only. Keep concise and domain-accurate target terms. Keep unknown abbreviations unchanged. Output strictly as TSV lines: source<TAB>target.',
+            'Translate programming identifier terms. Preserve the original structure: keep the same prefixes (e.g. YY_, XX_, macro names), same separators (underscores, case boundaries), and same non-word parts; only translate meaningful word segments into the target language. Example: YY_scan_string → YY_扫描_字符串. Keep unknown abbreviations and meaningless prefixes unchanged. Output strictly as TSV lines: source<TAB>target.',
         },
         {
           role: 'user',
@@ -147,7 +147,7 @@ export class OpenAICompatibleProvider implements TranslationProvider {
             request.projectContextSummary
               ? `project_context=${request.projectContextSummary}`
               : 'project_context=',
-            'rules=identifier_only;keep_abbrev_if_unknown;no_explanation',
+            'rules=preserve_structure;keep_prefixes_and_abbrev;translate_word_segments_only;identifier_only;no_explanation',
             'terms:',
             ...request.terms,
           ].join('\n'),

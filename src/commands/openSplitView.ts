@@ -80,12 +80,18 @@ export async function openTranslatedSplitView(
   }
 
   try {
+    // #region agent log
+    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'openSplitView.ts:getTranslatedText',message:'openTranslatedSplitView 调用 getTranslatedDocumentText',data:{step:'split1'},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+    // #endregion
     const translatedText =
       await service.getTranslatedDocumentText(sourceDocument);
     const translatedUri = contentProvider.buildTranslatedUri(
       sourceDocument.uri,
     );
     contentProvider.updateContent(translatedUri, translatedText);
+    // #region agent log
+    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'openSplitView.ts:diff',message:'contentProvider 已更新，即将执行 vscode.diff',data:{step:'split2'},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+    // #endregion
     await applyDiffEditorPreferences(sourceDocument.uri);
     const title = `Translated: ${path.basename(sourceDocument.fileName)}`;
     await vscode.commands.executeCommand(
