@@ -168,6 +168,46 @@
           "minimum": 1000,
           "description": "Translation request timeout in milliseconds."
         },
+        "codeTranslator.includeGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/*.js",
+            "**/*.ts",
+            "**/*.jsx",
+            "**/*.tsx",
+            "**/*.c",
+            "**/*.cpp",
+            "**/*.h",
+            "**/*.hpp",
+            "**/*.java",
+            "**/*.py",
+            "**/*.go",
+            "**/*.rs",
+            "**/*.rb",
+            "**/*.php",
+            "**/*.swift",
+            "**/*.kt",
+            "**/*.kts",
+            "**/*.scala",
+            "**/*.vue",
+            "**/*.svelte",
+            "**/*.m",
+            "**/*.mm",
+            "**/*.cs",
+            "**/*.fs",
+            "**/*.fsx",
+            "**/*.r",
+            "**/*.R",
+            "**/*.lua",
+            "**/*.zig",
+            "**/*.v",
+            "**/*.dart"
+          ],
+          "description": "Globs for source files to include in project translate. Only these files are scanned. Use [\"**/*\"] to scan all files."
+        },
         "codeTranslator.excludeGlobs": {
           "type": "array",
           "items": {
@@ -178,7 +218,13 @@
             "**/.git/**",
             "**/dist/**",
             "**/build/**",
-            "**/out/**"
+            "**/out/**",
+            "**/venv/**",
+            "**/__pycache__/**",
+            "**/.vscode/**",
+            "**/target/**",
+            "**/.next/**",
+            "**/coverage/**"
           ],
           "description": "Workspace globs excluded from project scan."
         },
@@ -226,6 +272,12 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically translate files when you open them (after a short delay). Builds up translations incrementally as you browse — no need to translate the entire project."
+        },
+        "codeTranslator.autoTranslateDebounceMs": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 100,
+          "description": "Debounce delay in ms before auto-translating the active file. Increase to reduce API calls when switching tabs quickly."
         }
       }
     }

@@ -27,11 +27,13 @@ export interface TranslatorSettings {
   skipPatterns: string[];
   maxBatchTerms: number;
   requestTimeoutMs: number;
+  includeGlobs: string[];
   excludeGlobs: string[];
   protectedTerms: string[];
   glossary: Record<string, string>;
   hideDiffIndicators: boolean;
   autoTranslate: boolean;
+  autoTranslateDebounceMs: number;
 }
 
 export const API_KEY_SECRET_KEY = 'codeTranslator.apiKey';
@@ -57,12 +59,51 @@ export function getTranslatorSettings(): TranslatorSettings {
     ]),
     maxBatchTerms: config.get<number>('maxBatchTerms', 80),
     requestTimeoutMs: config.get<number>('requestTimeoutMs', 20000),
+    includeGlobs: config.get<string[]>('includeGlobs', [
+      '**/*.js',
+      '**/*.ts',
+      '**/*.jsx',
+      '**/*.tsx',
+      '**/*.c',
+      '**/*.cpp',
+      '**/*.h',
+      '**/*.hpp',
+      '**/*.java',
+      '**/*.py',
+      '**/*.go',
+      '**/*.rs',
+      '**/*.rb',
+      '**/*.php',
+      '**/*.swift',
+      '**/*.kt',
+      '**/*.kts',
+      '**/*.scala',
+      '**/*.vue',
+      '**/*.svelte',
+      '**/*.m',
+      '**/*.mm',
+      '**/*.cs',
+      '**/*.fs',
+      '**/*.fsx',
+      '**/*.r',
+      '**/*.R',
+      '**/*.lua',
+      '**/*.zig',
+      '**/*.v',
+      '**/*.dart',
+    ]),
     excludeGlobs: config.get<string[]>('excludeGlobs', [
       '**/node_modules/**',
       '**/.git/**',
       '**/dist/**',
       '**/build/**',
       '**/out/**',
+      '**/venv/**',
+      '**/__pycache__/**',
+      '**/.vscode/**',
+      '**/target/**',
+      '**/.next/**',
+      '**/coverage/**',
     ]),
     protectedTerms: config.get<string[]>('protectedTerms', [
       'ctx',
@@ -77,5 +118,6 @@ export function getTranslatorSettings(): TranslatorSettings {
     glossary: config.get<Record<string, string>>('glossary', {}),
     hideDiffIndicators: config.get<boolean>('hideDiffIndicators', true),
     autoTranslate: config.get<boolean>('autoTranslate', false),
+    autoTranslateDebounceMs: config.get<number>('autoTranslateDebounceMs', 2000),
   };
 }

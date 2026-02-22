@@ -93,6 +93,7 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
     const document = editor.document;
+    const debounceMs = Math.max(100, settings.autoTranslateDebounceMs);
     autoTranslateTimer = setTimeout(() => {
       autoTranslateTimer = undefined;
       void (async () => {
@@ -107,7 +108,7 @@ export function activate(context: vscode.ExtensionContext) {
           // Silent failure — no API key, network error, etc.
         }
       })();
-    }, 2000);
+    }, debounceMs);
   };
   const onEditorChanged = vscode.window.onDidChangeActiveTextEditor(scheduleAutoTranslate);
 

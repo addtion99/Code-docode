@@ -173,7 +173,28 @@ export class TranslationService {
       settings.excludeGlobs.length > 0
         ? `{${settings.excludeGlobs.join(',')}}`
         : undefined;
-    const uris = await vscode.workspace.findFiles('**/*', exclude);
+    // Use includeGlobs (source-only by default); fallback to all files when empty or explicitly **/*
+    const includePatterns =
+      settings.includeGlobs.length > 0 &&
+      !settings.includeGlobs.every((g) => g === '**/*')
+        ? settings.includeGlobs
+        : ['**/*'];
+    const uriArrays = await Promise.all(
+      includePatterns.map((include) =>
+        vscode.workspace.findFiles(include, exclude),
+      ),
+    );
+    const uriSet = new Set<string>();
+    const uris: vscode.Uri[] = [];
+    for (const arr of uriArrays) {
+      for (const uri of arr) {
+        const key = uri.toString();
+        if (!uriSet.has(key)) {
+          uriSet.add(key);
+          uris.push(uri);
+        }
+      }
+    }
 
     const snapshots: WorkspaceFileSnapshot[] = [];
     const existingFileUris = new Set<string>();

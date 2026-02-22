@@ -34,7 +34,7 @@ export function registerTranslateProjectCommand(
         await showTranslatedResultForActiveEditor(service, contentProvider);
 
         void vscode.window.showInformationMessage(
-          `Project translation completed. Total ${result.files} files, scanned ${result.scannedFiles}, reused ${result.reusedFiles}, cached ${result.terms} terms, sent ${result.sentTerms} new terms to API.`,
+          `Project vocabulary ready. Open any file to see translations. (${result.files} files, ${result.terms} terms cached, ${result.sentTerms} new API requests)`,
         );
       } catch (error) {
         const message =
