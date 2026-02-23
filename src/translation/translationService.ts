@@ -29,6 +29,7 @@ import {
 } from '../naming/normalize';
 import { DemoProvider } from './demoProvider';
 import { DeepSeekProvider } from './deepseekProvider';
+import { GlmProvider } from './glmProvider';
 import { OpenAICompatibleProvider } from './openaiCompatibleProvider';
 import { TranslationProvider } from './provider';
 
@@ -890,6 +891,15 @@ export class TranslationService {
           );
         }
         return new DeepSeekProvider(settings, apiKey);
+      }
+      case 'glm': {
+        const apiKey = await this.context.secrets.get(API_KEY_SECRET_KEY);
+        if (!apiKey) {
+          throw new Error(
+            'Missing API key. Run "Code Translator: Set API Key" first.',
+          );
+        }
+        return new GlmProvider(settings, apiKey);
       }
       case 'gemini':
       case 'openrouter':

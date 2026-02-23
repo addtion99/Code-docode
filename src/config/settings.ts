@@ -6,6 +6,7 @@ export type ProviderType =
   | 'openaiCompatible'
   | 'openrouter'
   | 'deepseek'
+  | 'glm'
   | 'siliconflow'
   | 'moonshot'
   | 'groq'

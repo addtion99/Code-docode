@@ -32,6 +32,13 @@ const PRESETS: ProviderPreset[] = [
     model: 'deepseek-chat',
   },
   {
+    id: 'glm',
+    label: '智谱 GLM-4.7 Flash',
+    description: '智谱AI开放平台 GLM-4.7 Flash',
+    apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    model: 'glm-4.7-flash',
+  },
+  {
     id: 'siliconflow',
     label: 'SiliconFlow',
     description: '硅基流动 OpenAI兼容接口',

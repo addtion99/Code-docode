@@ -6,19 +6,92 @@ import { IdentifierKind, IdentifierOccurrence } from './types';
  * 预处理指令名称不翻译，指令行上的其他标识符由收集器处理。
  */
 const C_CPP_KEYWORDS = new Set([
-  'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do',
-  'double', 'else', 'enum', 'extern', 'float', 'for', 'goto', 'if', 'int',
-  'long', 'register', 'return', 'short', 'signed', 'sizeof', 'static',
-  'struct', 'switch', 'typedef', 'union', 'unsigned', 'void', 'volatile', 'while',
-  'inline', 'restrict', '_Bool', '_Complex', '_Imaginary',
-  '_Alignas', '_Alignof', '_Atomic', '_Generic', '_Noreturn', '_Static_assert', '_Thread_local',
+  'auto',
+  'break',
+  'case',
+  'char',
+  'const',
+  'continue',
+  'default',
+  'do',
+  'double',
+  'else',
+  'enum',
+  'extern',
+  'float',
+  'for',
+  'goto',
+  'if',
+  'int',
+  'long',
+  'register',
+  'return',
+  'short',
+  'signed',
+  'sizeof',
+  'static',
+  'struct',
+  'switch',
+  'typedef',
+  'union',
+  'unsigned',
+  'void',
+  'volatile',
+  'while',
+  'inline',
+  'restrict',
+  '_Bool',
+  '_Complex',
+  '_Imaginary',
+  '_Alignas',
+  '_Alignof',
+  '_Atomic',
+  '_Generic',
+  '_Noreturn',
+  '_Static_assert',
+  '_Thread_local',
   // C++ 常见关键字
-  'class', 'namespace', 'template', 'typename', 'operator', 'new', 'delete',
-  'this', 'virtual', 'override', 'final', 'public', 'private', 'protected',
-  'true', 'false', 'nullptr', 'bool', 'catch', 'throw', 'try', 'using',
-  'mutable', 'explicit', 'friend', 'typeid', 'const_cast', 'dynamic_cast',
-  'reinterpret_cast', 'static_cast', 'and', 'and_eq', 'bitand', 'bitor',
-  'compl', 'not', 'not_eq', 'or', 'or_eq', 'xor', 'xor_eq',
+  'class',
+  'namespace',
+  'template',
+  'typename',
+  'operator',
+  'new',
+  'delete',
+  'this',
+  'virtual',
+  'override',
+  'final',
+  'public',
+  'private',
+  'protected',
+  'true',
+  'false',
+  'nullptr',
+  'bool',
+  'catch',
+  'throw',
+  'try',
+  'using',
+  'mutable',
+  'explicit',
+  'friend',
+  'typeid',
+  'const_cast',
+  'dynamic_cast',
+  'reinterpret_cast',
+  'static_cast',
+  'and',
+  'and_eq',
+  'bitand',
+  'bitor',
+  'compl',
+  'not',
+  'not_eq',
+  'or',
+  'or_eq',
+  'xor',
+  'xor_eq',
 ]);
 
 const IDENTIFIER_REGEX = /[A-Za-z_][A-Za-z0-9_]*/g;
@@ -108,7 +181,10 @@ function stripLineComments(line: string): string {
 }
 
 /** 判断 range 是否被任一 forbidden 区间包含（含相等） */
-function isRangeContainedIn(inner: vscode.Range, forbiddenRanges: vscode.Range[]): boolean {
+function isRangeContainedIn(
+  inner: vscode.Range,
+  forbiddenRanges: vscode.Range[],
+): boolean {
   for (const outer of forbiddenRanges) {
     if (outer.contains(inner.start) && outer.contains(inner.end)) {
       return true;
@@ -183,7 +259,8 @@ export function collectFromCRaw(
   options: CollectFromCRawOptions = {},
 ): IdentifierOccurrence[] {
   const { semanticKeywordRanges } = options;
-  const useSemanticFilter = Array.isArray(semanticKeywordRanges) && semanticKeywordRanges.length > 0;
+  const useSemanticFilter =
+    Array.isArray(semanticKeywordRanges) && semanticKeywordRanges.length > 0;
   const results: IdentifierOccurrence[] = [];
 
   for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex += 1) {
@@ -213,7 +290,7 @@ export function collectFromCRaw(
 
       if (isPreprocessor && !skippedDirective) {
         skippedDirective = true;
-      continue;
+        continue;
       }
 
       if (useSemanticFilter) {
