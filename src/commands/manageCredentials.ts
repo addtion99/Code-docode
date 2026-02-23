@@ -26,7 +26,9 @@ function hasUserConfiguredValue<T>(
   );
 }
 
-async function applyGeminiDefaults(options?: { force?: boolean }): Promise<void> {
+async function applyGeminiDefaults(options?: {
+  force?: boolean;
+}): Promise<void> {
   const config = vscode.workspace.getConfiguration('codeTranslator');
   const updates: Array<Thenable<void>> = [];
   const target = vscode.ConfigurationTarget.Global;
@@ -55,127 +57,177 @@ async function applyGeminiDefaults(options?: { force?: boolean }): Promise<void>
 export function registerSetApiKeyCommand(
   service: TranslationService,
 ): vscode.Disposable {
-  return vscode.commands.registerCommand('codeTranslator.setApiKey', async () => {
-    const apiKey = await vscode.window.showInputBox({
-      prompt: 'Enter translation API key',
-      password: true,
-      ignoreFocusOut: true,
-      validateInput: (value) =>
-        value.trim().length === 0 ? 'API key cannot be empty.' : undefined,
-    });
+  return vscode.commands.registerCommand(
+    'codeTranslator.setApiKey',
+    async () => {
+      const apiKey = await vscode.window.showInputBox({
+        prompt: 'Enter translation API key',
+        password: true,
+        ignoreFocusOut: true,
+        validateInput: (value) =>
+          value.trim().length === 0 ? 'API key cannot be empty.' : undefined,
+      });
 
-    if (!apiKey) {
-      return;
-    }
-
-    await service.setApiKey(apiKey);
-    await applyGeminiDefaults();
-    const config = vscode.workspace.getConfiguration('codeTranslator');
-
-    try {
-      const selectedModel = await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Code Translator: Validating API key and available Gemini model...',
-          cancellable: false,
-        },
-        async () => {
-          const provider = config.get<ProviderType>('provider', 'gemini');
-          if (provider !== 'gemini') {
-            await service.validateCurrentProviderConnection();
-            return config.get<string>('model', 'custom-model');
-          }
-
-          let lastError: unknown;
-          for (const model of GEMINI_FREE_TIER_CANDIDATE_MODELS) {
-            try {
-              await config.update(
-                'model',
-                model,
-                vscode.ConfigurationTarget.Global,
-              );
-              await service.validateCurrentProviderConnection();
-              return model;
-            } catch (error) {
-              lastError = error;
-            }
-          }
-          throw lastError ?? new Error('No available Gemini model found.');
-        },
-      );
-      void vscode.window.showInformationMessage(
-        `Success: API key saved and validated with model "${selectedModel}".`,
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown validation error.';
-      const protocolError = /Invalid URL protocol/i.test(message);
-
-      if (protocolError) {
-        try {
-          await applyGeminiDefaults({ force: true });
-          let selectedModel = '';
-          let lastRetryError: unknown;
-          for (const model of GEMINI_FREE_TIER_CANDIDATE_MODELS) {
-            try {
-              await config.update(
-                'model',
-                model,
-                vscode.ConfigurationTarget.Global,
-              );
-              await service.validateCurrentProviderConnection();
-              selectedModel = model;
-              break;
-            } catch (error) {
-              lastRetryError = error;
-            }
-          }
-          if (!selectedModel) {
-            throw lastRetryError ?? new Error('No available Gemini model after auto-fix.');
-          }
-          void vscode.window.showInformationMessage(
-            `Success: API key saved. Invalid URL config was auto-fixed and model "${selectedModel}" is available.`,
-          );
-          return;
-        } catch (retryError) {
-          const retryMessage =
-            retryError instanceof Error
-              ? retryError.message
-              : 'Unknown validation error after auto-fix.';
-          void vscode.window.showErrorMessage(
-            `API key saved, auto-fix attempted, but validation still failed: ${retryMessage}`,
-          );
-          return;
-        }
-      }
-
-      if (/RESOURCE_EXHAUSTED|quota|429/i.test(message)) {
-        void vscode.window.showErrorMessage(
-          `API key saved, but free-tier quota/model is unavailable: ${message}`,
-          'Open AI Studio Usage',
-        ).then((choice) => {
-          if (choice === 'Open AI Studio Usage') {
-            void vscode.env.openExternal(
-              vscode.Uri.parse('https://aistudio.google.com/usage'),
-            );
-          }
-        });
+      if (!apiKey) {
         return;
       }
 
-      void vscode.window.showErrorMessage(
-        `API key saved, but validation failed: ${message}`,
+      await service.setApiKey(apiKey);
+      await applyGeminiDefaults();
+      const config = vscode.workspace.getConfiguration('codeTranslator');
+
+      try {
+        const selectedModel = await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Code Translator: Validating API key and available model...',
+            cancellable: false,
+          },
+          async () => {
+            const provider = config.get<ProviderType>('provider', 'gemini');
+            if (provider !== 'gemini') {
+              await service.validateCurrentProviderConnection();
+              return config.get<string>('model', 'custom-model');
+            }
+
+            let lastError: unknown;
+            for (const model of GEMINI_FREE_TIER_CANDIDATE_MODELS) {
+              try {
+                await config.update(
+                  'model',
+                  model,
+                  vscode.ConfigurationTarget.Global,
+                );
+                await service.validateCurrentProviderConnection();
+                return model;
+              } catch (error) {
+                lastError = error;
+              }
+            }
+            throw lastError ?? new Error('No available Gemini model found.');
+          },
+        );
+        void vscode.window.showInformationMessage(
+          `Success: API key saved and validated with model "${selectedModel}".`,
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown validation error.';
+        const protocolError = /Invalid URL protocol/i.test(message);
+
+        if (protocolError) {
+          try {
+            await applyGeminiDefaults({ force: true });
+            let selectedModel = '';
+            let lastRetryError: unknown;
+            for (const model of GEMINI_FREE_TIER_CANDIDATE_MODELS) {
+              try {
+                await config.update(
+                  'model',
+                  model,
+                  vscode.ConfigurationTarget.Global,
+                );
+                await service.validateCurrentProviderConnection();
+                selectedModel = model;
+                break;
+              } catch (error) {
+                lastRetryError = error;
+              }
+            }
+            if (!selectedModel) {
+              throw (
+                lastRetryError ??
+                new Error('No available Gemini model after auto-fix.')
+              );
+            }
+            void vscode.window.showInformationMessage(
+              `Success: API key saved. Invalid URL config was auto-fixed and model "${selectedModel}" is available.`,
+            );
+            return;
+          } catch (retryError) {
+            const retryMessage =
+              retryError instanceof Error
+                ? retryError.message
+                : 'Unknown validation error after auto-fix.';
+            void vscode.window.showErrorMessage(
+              `API key saved, auto-fix attempted, but validation still failed: ${retryMessage}`,
+            );
+            return;
+          }
+        }
+
+        if (/RESOURCE_EXHAUSTED|quota|429/i.test(message)) {
+          void vscode.window
+            .showErrorMessage(
+              `API key saved, but free-tier quota/model is unavailable: ${message}`,
+              'Open AI Studio Usage',
+            )
+            .then((choice) => {
+              if (choice === 'Open AI Studio Usage') {
+                void vscode.env.openExternal(
+                  vscode.Uri.parse('https://aistudio.google.com/usage'),
+                );
+              }
+            });
+          return;
+        }
+
+        void vscode.window.showErrorMessage(
+          `API key saved, but validation failed: ${message}`,
+        );
+      }
+    },
+  );
+}
+
+export function registerSetRequestConcurrencyCommand(): vscode.Disposable {
+  return vscode.commands.registerCommand(
+    'codeTranslator.setRequestConcurrency',
+    async () => {
+      const config = vscode.workspace.getConfiguration('codeTranslator');
+      const current = config.get<number>('requestConcurrency', 3);
+      const input = await vscode.window.showInputBox({
+        prompt: 'Set max concurrent API requests (1-20)',
+        value: String(current),
+        ignoreFocusOut: true,
+        validateInput: (value) => {
+          const parsed = Number(value);
+          if (!Number.isInteger(parsed)) {
+            return 'Please enter an integer.';
+          }
+          if (parsed < 1 || parsed > 20) {
+            return 'Value must be between 1 and 20.';
+          }
+          return undefined;
+        },
+      });
+
+      if (input === undefined) {
+        return;
+      }
+      const nextValue = Number(input);
+      await config.update(
+        'requestConcurrency',
+        nextValue,
+        vscode.ConfigurationTarget.Global,
       );
-    }
-  });
+      void vscode.window.showInformationMessage(
+        `已更新并发请求数：${nextValue}`,
+      );
+    },
+  );
 }
 
 export function registerClearCacheCommand(
   service: TranslationService,
 ): vscode.Disposable {
-  return vscode.commands.registerCommand('codeTranslator.clearCache', async () => {
-    await service.clearCache();
-    void vscode.window.showInformationMessage(
-      'Code Translator cache has been cleared.',
-    );
-  });
+  return vscode.commands.registerCommand(
+    'codeTranslator.clearCache',
+    async () => {
+      await service.clearCache();
+      void vscode.window.showInformationMessage(
+        'Code Translator cache has been cleared.',
+      );
+    },
+  );
 }

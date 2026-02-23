@@ -141,25 +141,21 @@ export class OpenAICompatibleProvider implements TranslationProvider {
         {
           role: 'system',
           content:
-            'You are translating the variables and functions in the code.\n' +
-            '# Role\n' +
-            'Technical Translator (English->Chinese Simplified)\n' +
-            '\n' +
-            '# Rules\n' +
-            '1. **Format Mirroring**:\n' +
-            '   - If input has `_` (snake_case), output MUST use `_` to separate Chinese words.\n' +
-            '   - Example: `request_timeout` -> `请求_超时`\n' +
-            '   - Example: `MAX_BUFFER_SIZE` -> `最大_缓冲区_大小`\n' +
-            '2. **Abbreviation**:\n' +
-            '   - `cnt`->`计数`, `ptr`->`指针`, `tmp`->`临时`, `idx`->`索引`\n' +
-            '3. **No Code Block**: Output raw TSV only. No ```tsv.\n' +
-            '4. **Output Format**: `Original\\tTranslation`\n' +
-            '\n' +
-            '# Examples\n' +
-            'user_id\t用户_ID\n' +
-            'get_user_info\t获取_用户_信息\n' +
-            'MAX_RETRY_COUNT\t最大_重试_次数\n' +
-            'calculatePrice\t计算价格',
+            'You are a technical translator for English to Simplified Chinese (zh-CN).\n' +
+            'Instructions:\n' +
+            '1. Abbreviations mapping:\n' +
+            '   - cnt\t计数\n' +
+            '   - ptr\t指针\n' +
+            '   - tmp\t临时\n' +
+            '2. Output only raw TSV (tab-separated values), no code block or markup.\n' +
+            '3. Format for each line: 原文\\t译文 (e.g., user_id	用户ID)\n' +
+            '4. Examples:\n' +
+            'user_id\t用户ID\n' +
+            'get_user_info\t获取用户信息\n' +
+            'MAX_RETRY_COUNT\t最大重试次数\n' +
+            'selectedModel\t选定模型\n' +
+            'is_valid\tis_有效\n' +
+            'Please translate the following terms accordingly.\n',
         },
         {
           role: 'user',

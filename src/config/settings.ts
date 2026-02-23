@@ -7,6 +7,7 @@ export type ProviderType =
   | 'openrouter'
   | 'deepseek'
   | 'glm'
+  | 'doubao'
   | 'siliconflow'
   | 'moonshot'
   | 'groq'
@@ -27,6 +28,7 @@ export interface TranslatorSettings {
   renderMode: RenderMode;
   skipPatterns: string[];
   maxBatchTerms: number;
+  requestConcurrency: number;
   requestTimeoutMs: number;
   includeGlobs: string[];
   excludeGlobs: string[];
@@ -59,6 +61,7 @@ export function getTranslatorSettings(): TranslatorSettings {
       '^res$',
     ]),
     maxBatchTerms: config.get<number>('maxBatchTerms', 80),
+    requestConcurrency: config.get<number>('requestConcurrency', 3),
     requestTimeoutMs: config.get<number>('requestTimeoutMs', 20000),
     includeGlobs: config.get<string[]>('includeGlobs', [
       '**/*.js',

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import {
   registerClearCacheCommand,
   registerSetApiKeyCommand,
+  registerSetRequestConcurrencyCommand,
 } from './commands/manageCredentials';
 import {
   refreshVisibleTranslatedForSource,
@@ -60,8 +61,9 @@ export function activate(context: vscode.ExtensionContext) {
     translatedContentProvider,
   );
   const setApiKeyCommand = registerSetApiKeyCommand(translationService);
+  const setRequestConcurrencyCommand = registerSetRequestConcurrencyCommand();
   const clearCacheCommand = registerClearCacheCommand(translationService);
-  const selectProviderCommand = registerSelectProviderCommand();
+  const selectProviderCommand = registerSelectProviderCommand(translationService);
   const useInlayModeCommand = registerUseInlayModeCommand();
   const useSplitModeCommand = registerUseSplitModeCommand(
     translationService,
@@ -209,6 +211,7 @@ export function activate(context: vscode.ExtensionContext) {
     translateProjectCommand,
     translateFileCommand,
     setApiKeyCommand,
+    setRequestConcurrencyCommand,
     clearCacheCommand,
     selectProviderCommand,
     useInlayModeCommand,

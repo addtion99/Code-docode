@@ -29,6 +29,7 @@ import {
 } from '../naming/normalize';
 import { DemoProvider } from './demoProvider';
 import { DeepSeekProvider } from './deepseekProvider';
+import { DoubaoProvider } from './doubaoProvider';
 import { GlmProvider } from './glmProvider';
 import { OpenAICompatibleProvider } from './openaiCompatibleProvider';
 import { TranslationProvider } from './provider';
@@ -738,16 +739,24 @@ export class TranslationService {
     const batchSize = Math.max(1, settings.maxBatchTerms);
     const projectContextSummary = await this.getProjectContextSummary();
 
+    const batches: string[][] = [];
     for (let i = 0; i < missing.length; i += batchSize) {
-      const batch = missing.slice(i, i + batchSize);
-      const translated = await provider.translateBatch({
-        terms: batch,
-        sourceLanguage: settings.sourceLanguage,
-        targetLanguage: settings.targetLanguage,
-        projectContextSummary,
-      });
-      this.cacheStore.setMany(translated, settings);
+      batches.push(missing.slice(i, i + batchSize));
     }
+
+    await this.runWithConcurrency(
+      batches,
+      settings.requestConcurrency,
+      async (batch) => {
+        const translated = await provider.translateBatch({
+          terms: batch,
+          sourceLanguage: settings.sourceLanguage,
+          targetLanguage: settings.targetLanguage,
+          projectContextSummary,
+        });
+        this.cacheStore.setMany(translated, settings);
+      },
+    );
   }
 
   private async buildCommentTranslationMap(
@@ -804,15 +813,23 @@ export class TranslationService {
     }
     const provider = await this.buildProvider(settings);
     const batchSize = Math.max(1, Math.floor(settings.maxBatchTerms / 4));
+    const batches: string[][] = [];
     for (let i = 0; i < missing.length; i += batchSize) {
-      const batch = missing.slice(i, i + batchSize);
-      const translated = await provider.translateComments({
-        comments: batch,
-        sourceLanguage: settings.sourceLanguage,
-        targetLanguage: settings.targetLanguage,
-      });
-      this.cacheStore.setManyStringLiterals(translated, settings);
+      batches.push(missing.slice(i, i + batchSize));
     }
+
+    await this.runWithConcurrency(
+      batches,
+      settings.requestConcurrency,
+      async (batch) => {
+        const translated = await provider.translateComments({
+          comments: batch,
+          sourceLanguage: settings.sourceLanguage,
+          targetLanguage: settings.targetLanguage,
+        });
+        this.cacheStore.setManyStringLiterals(translated, settings);
+      },
+    );
   }
 
   private isCommentAlreadyInTargetLanguage(
@@ -848,15 +865,47 @@ export class TranslationService {
     const provider = await this.buildProvider(settings);
     const batchSize = Math.max(1, Math.floor(settings.maxBatchTerms / 4));
 
+    const batches: string[][] = [];
     for (let i = 0; i < missing.length; i += batchSize) {
-      const batch = missing.slice(i, i + batchSize);
-      const translated = await provider.translateComments({
-        comments: batch,
-        sourceLanguage: settings.sourceLanguage,
-        targetLanguage: settings.targetLanguage,
-      });
-      this.cacheStore.setManyComments(translated, settings);
+      batches.push(missing.slice(i, i + batchSize));
     }
+
+    await this.runWithConcurrency(
+      batches,
+      settings.requestConcurrency,
+      async (batch) => {
+        const translated = await provider.translateComments({
+          comments: batch,
+          sourceLanguage: settings.sourceLanguage,
+          targetLanguage: settings.targetLanguage,
+        });
+        this.cacheStore.setManyComments(translated, settings);
+      },
+    );
+  }
+
+  private async runWithConcurrency<T>(
+    items: T[],
+    limit: number,
+    worker: (item: T) => Promise<void>,
+  ): Promise<void> {
+    if (items.length === 0) {
+      return;
+    }
+    const resolvedLimit = Math.max(1, Math.floor(limit));
+    const maxWorkers = Math.min(resolvedLimit, items.length);
+    let nextIndex = 0;
+    const runners = Array.from({ length: maxWorkers }, async () => {
+      while (true) {
+        const current = nextIndex;
+        nextIndex += 1;
+        if (current >= items.length) {
+          break;
+        }
+        await worker(items[current]);
+      }
+    });
+    await Promise.all(runners);
   }
 
   private countMissingTerms(
@@ -900,6 +949,15 @@ export class TranslationService {
           );
         }
         return new GlmProvider(settings, apiKey);
+      }
+      case 'doubao': {
+        const apiKey = await this.context.secrets.get(API_KEY_SECRET_KEY);
+        if (!apiKey) {
+          throw new Error(
+            'Missing API key. Run "Code Translator: Set API Key" first.',
+          );
+        }
+        return new DoubaoProvider(settings, apiKey);
       }
       case 'gemini':
       case 'openrouter':

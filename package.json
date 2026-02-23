@@ -46,6 +46,10 @@
         "title": "Code Decode:1 Set API Key"
       },
       {
+        "command": "codeTranslator.setRequestConcurrency",
+        "title": "Code Decode:1 Set API Concurrency"
+      },
+      {
         "command": "codeTranslator.selectProvider",
         "title": "Code Decode:1 Select API Provider"
       },
@@ -102,6 +106,7 @@
             "openrouter",
             "deepseek",
             "glm",
+            "doubao",
             "siliconflow",
             "moonshot",
             "groq",
@@ -170,6 +175,12 @@
           "default": 80,
           "minimum": 1,
           "description": "Max normalized terms per request. Larger value reduces per-request prompt overhead."
+        },
+        "codeTranslator.requestConcurrency": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "description": "Max number of concurrent translation API requests."
         },
         "codeTranslator.requestTimeoutMs": {
           "type": "number",

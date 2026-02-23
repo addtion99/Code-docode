@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ProviderType } from '../config/settings';
+import { TranslationService } from '../translation/translationService';
 
 interface ProviderPreset {
   id: ProviderType;
@@ -33,10 +34,17 @@ const PRESETS: ProviderPreset[] = [
   },
   {
     id: 'glm',
-    label: '智谱 GLM-4.7 Flash',
-    description: '智谱AI开放平台 GLM-4.7 Flash',
+    label: '智谱 GLM-4-FlashX-250414',
+    description: '智谱AI开放平台（OpenAI兼容接口，FlashX超低价）',
     apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    model: 'glm-4.7-flash',
+    model: 'GLM-4-FlashX-250414',
+  },
+  {
+    id: 'doubao',
+    label: '火山方舟 Doubao',
+    description: '火山方舟 OpenAI兼容接口',
+    apiBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    model: 'doubao-seed-1-6-lite-251015',
   },
   {
     id: 'siliconflow',
@@ -90,7 +98,9 @@ const PRESETS: ProviderPreset[] = [
   },
 ];
 
-export function registerSelectProviderCommand(): vscode.Disposable {
+export function registerSelectProviderCommand(
+  translationService: TranslationService,
+): vscode.Disposable {
   const handler = async (): Promise<void> => {
     const picked = await vscode.window.showQuickPick(
       PRESETS.map((item) => ({
@@ -110,7 +120,11 @@ export function registerSelectProviderCommand(): vscode.Disposable {
     }
 
     const config = vscode.workspace.getConfiguration('codeTranslator');
-    await config.update('provider', picked.item.id, vscode.ConfigurationTarget.Global);
+    await config.update(
+      'provider',
+      picked.item.id,
+      vscode.ConfigurationTarget.Global,
+    );
     if (picked.item.apiBaseUrl) {
       await config.update(
         'apiBaseUrl',
@@ -119,12 +133,41 @@ export function registerSelectProviderCommand(): vscode.Disposable {
       );
     }
     if (picked.item.model) {
-      await config.update('model', picked.item.model, vscode.ConfigurationTarget.Global);
+      await config.update(
+        'model',
+        picked.item.model,
+        vscode.ConfigurationTarget.Global,
+      );
     }
 
     void vscode.window.showInformationMessage(
       `已切换服务商：${picked.item.label}`,
     );
+
+    const apiKey = await vscode.window.showInputBox({
+      prompt: `请输入 ${picked.item.label} 的 API Key（将安全保存到 VSCode Secret）`,
+      password: true,
+      ignoreFocusOut: true,
+      validateInput: (value) =>
+        value.trim().length === 0 ? 'API key 不能为空。' : undefined,
+    });
+
+    if (!apiKey) {
+      return;
+    }
+
+    await translationService.setApiKey(apiKey);
+    try {
+      await translationService.validateCurrentProviderConnection();
+      void vscode.window.showInformationMessage(
+        `API Key 已保存并验证通过：${picked.item.label}`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(
+        `API Key 已保存，但连通性验证失败：${message}`,
+      );
+    }
   };
 
   const selectProviderCommand = vscode.commands.registerCommand(
