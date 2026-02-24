@@ -149,7 +149,8 @@ export class OpenAICompatibleProvider implements TranslationProvider {
             '   - tmp\t临时\n' +
             '2. Output only raw TSV (tab-separated values), no code block or markup.\n' +
             '3. Format for each line: 原文\\t译文 (e.g., user_id	用户ID)\n' +
-            '4. Examples:\n' +
+            '4. Do not translate overly basic programming terms (such as: Index, Data, List, Map, Result). Do not translate general technical terms (such as ID, Config); do not translate basic, simple terms.\n' +
+            '5. Examples:\n' +
             'user_id\t用户ID\n' +
             'get_user_info\t获取用户信息\n' +
             'MAX_RETRY_COUNT\t最大重试次数\n' +
