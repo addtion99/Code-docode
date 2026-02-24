@@ -11,9 +11,7 @@ import {
 } from '../config/settings';
 import { collectFromCMacroLines } from '../collector/cIdentifierCollector';
 import { collectComments } from '../collector/commentCollector';
-import {
-  collectFromSemanticTokens,
-} from '../collector/semanticCollector';
+import { collectFromSemanticTokens } from '../collector/semanticCollector';
 import { collectFromDocumentSymbolsFallback } from '../collector/symbolFallback';
 import { collectFromGenericRegex } from '../collector/genericIdentifierCollector';
 import {
@@ -44,17 +42,79 @@ interface DocumentTranslationState {
 }
 
 const COMMON_KEYWORDS = new Set([
-  'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'default',
-  'break', 'continue', 'return', 'goto',
-  'class', 'struct', 'enum', 'interface', 'namespace', 'function', 'def', 'lambda',
-  'var', 'let', 'const', 'static', 'public', 'private', 'protected',
-  'export', 'import', 'from', 'as',
-  'try', 'catch', 'finally', 'throw', 'throws', 'new', 'delete', 'this', 'super',
-  'true', 'false', 'null', 'undefined', 'void',
-  'int', 'float', 'double', 'char', 'bool', 'boolean', 'long', 'short', 'signed', 'unsigned',
-  'package', 'include', 'define', 'endif', 'ifdef', 'ifndef', 'elif',
-  'using', 'typedef', 'template', 'typename', 'operator', 'extends', 'implements',
-  'yield', 'await', 'async', 'sizeof',
+  'if',
+  'else',
+  'for',
+  'while',
+  'do',
+  'switch',
+  'case',
+  'default',
+  'break',
+  'continue',
+  'return',
+  'goto',
+  'class',
+  'struct',
+  'enum',
+  'interface',
+  'namespace',
+  'function',
+  'def',
+  'lambda',
+  'var',
+  'let',
+  'const',
+  'static',
+  'public',
+  'private',
+  'protected',
+  'export',
+  'import',
+  'from',
+  'as',
+  'try',
+  'catch',
+  'finally',
+  'throw',
+  'throws',
+  'new',
+  'delete',
+  'this',
+  'super',
+  'true',
+  'false',
+  'null',
+  'undefined',
+  'void',
+  'int',
+  'float',
+  'double',
+  'char',
+  'bool',
+  'boolean',
+  'long',
+  'short',
+  'signed',
+  'unsigned',
+  'package',
+  'include',
+  'define',
+  'endif',
+  'ifdef',
+  'ifndef',
+  'elif',
+  'using',
+  'typedef',
+  'template',
+  'typename',
+  'operator',
+  'extends',
+  'implements',
+  'yield',
+  'await',
+  'async',
+  'sizeof',
 ]);
 
 const DEFAULT_IDENTIFIER_BLACKLIST = new Set([
@@ -66,6 +126,8 @@ const DEFAULT_IDENTIFIER_BLACKLIST = new Set([
   'valueof',
   'hashcode',
 ]);
+
+const IDENTIFIER_REGEX = /[A-Za-z_][A-Za-z0-9_]*/g;
 
 const FALLBACK_WORD_MAP = new Map<string, string>([
   ['max', '最大'],
@@ -117,6 +179,17 @@ export interface WorkspaceTranslationResult {
 export interface FileTranslationResult {
   terms: number;
   sentTerms: number;
+}
+
+interface MissingTermScanOptions {
+  pendingTerms?: Set<string>;
+  maxScanLines?: number;
+}
+
+export interface MissingTermsScanResult {
+  terms: string[];
+  hitTop: boolean;
+  hitBottom: boolean;
 }
 
 export class TranslationService {
@@ -297,27 +370,101 @@ export class TranslationService {
     document: vscode.TextDocument,
   ): Promise<FileTranslationResult> {
     // #region agent log
-    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:translateCurrentFile:start',message:'translateCurrentFile 开始',data:{step:'T1',uri:document.uri.toString(),languageId:document.languageId},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a59154',
+      },
+      body: JSON.stringify({
+        sessionId: 'a59154',
+        location: 'translationService.ts:translateCurrentFile:start',
+        message: 'translateCurrentFile 开始',
+        data: {
+          step: 'T1',
+          uri: document.uri.toString(),
+          languageId: document.languageId,
+        },
+        timestamp: Date.now(),
+        hypothesisId: 'flow',
+      }),
+    }).catch(() => {});
     // #endregion
     await this.cacheStore.init();
     await this.workspaceIndexStore.init();
     // #region agent log
-    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:translateCurrentFile:afterInit',message:'cacheStore/workspaceIndexStore init 完成',data:{step:'T2'},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a59154',
+      },
+      body: JSON.stringify({
+        sessionId: 'a59154',
+        location: 'translationService.ts:translateCurrentFile:afterInit',
+        message: 'cacheStore/workspaceIndexStore init 完成',
+        data: { step: 'T2' },
+        timestamp: Date.now(),
+        hypothesisId: 'flow',
+      }),
+    }).catch(() => {});
     // #endregion
 
     const settings = getTranslatorSettings();
     const occurrences = await this.collectOccurrences(document);
     // #region agent log
-    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:translateCurrentFile:afterCollect',message:'collectOccurrences 完成',data:{step:'T3',occurrencesCount:occurrences.length},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a59154',
+      },
+      body: JSON.stringify({
+        sessionId: 'a59154',
+        location: 'translationService.ts:translateCurrentFile:afterCollect',
+        message: 'collectOccurrences 完成',
+        data: { step: 'T3', occurrencesCount: occurrences.length },
+        timestamp: Date.now(),
+        hypothesisId: 'flow',
+      }),
+    }).catch(() => {});
     // #endregion
     const terms = this.extractNormalizedTerms(occurrences);
     // #region agent log
-    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:translateCurrentFile:afterExtract',message:'extractNormalizedTerms 完成',data:{step:'T4',termsCount:terms.length},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a59154',
+      },
+      body: JSON.stringify({
+        sessionId: 'a59154',
+        location: 'translationService.ts:translateCurrentFile:afterExtract',
+        message: 'extractNormalizedTerms 完成',
+        data: { step: 'T4', termsCount: terms.length },
+        timestamp: Date.now(),
+        hypothesisId: 'flow',
+      }),
+    }).catch(() => {});
     // #endregion
     const sentTerms = this.countMissingTerms(terms, settings);
     await this.ensureTermTranslations(terms);
     // #region agent log
-    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:translateCurrentFile:afterEnsureTerms',message:'ensureTermTranslations 完成',data:{step:'T5',sentTerms},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a59154',
+      },
+      body: JSON.stringify({
+        sessionId: 'a59154',
+        location: 'translationService.ts:translateCurrentFile:afterEnsureTerms',
+        message: 'ensureTermTranslations 完成',
+        data: { step: 'T5', sentTerms },
+        timestamp: Date.now(),
+        hypothesisId: 'flow',
+      }),
+    }).catch(() => {});
     // #endregion
 
     const translateComments = this.shouldTranslateComments();
@@ -326,19 +473,58 @@ export class TranslationService {
       const commentTexts = Array.from(new Set(comments.map((c) => c.text)));
       await this.ensureCommentTranslations(commentTexts);
       // #region agent log
-      fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:translateCurrentFile:afterComments',message:'ensureCommentTranslations 完成',data:{step:'T6',commentCount:commentTexts.length},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+      fetch(
+        'http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': 'a59154',
+          },
+          body: JSON.stringify({
+            sessionId: 'a59154',
+            location:
+              'translationService.ts:translateCurrentFile:afterComments',
+            message: 'ensureCommentTranslations 完成',
+            data: { step: 'T6', commentCount: commentTexts.length },
+            timestamp: Date.now(),
+            hypothesisId: 'flow',
+          }),
+        },
+      ).catch(() => {});
       // #endregion
     }
 
     const langId = document.languageId;
-    if (this.shouldTranslateStringLiterals(langId) && (langId === 'c' || langId === 'cpp')) {
+    if (
+      this.shouldTranslateStringLiterals(langId) &&
+      (langId === 'c' || langId === 'cpp')
+    ) {
       const stringLiterals = collectCStringLiterals(document);
       const stringLiteralTexts = Array.from(
         new Set(stringLiterals.map((s) => s.text)),
       );
       await this.ensureStringLiteralTranslations(stringLiteralTexts);
       // #region agent log
-      fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:translateCurrentFile:afterStringLiterals',message:'ensureStringLiteralTranslations 完成',data:{step:'T7',count:stringLiteralTexts.length},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+      fetch(
+        'http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': 'a59154',
+          },
+          body: JSON.stringify({
+            sessionId: 'a59154',
+            location:
+              'translationService.ts:translateCurrentFile:afterStringLiterals',
+            message: 'ensureStringLiteralTranslations 完成',
+            data: { step: 'T7', count: stringLiteralTexts.length },
+            timestamp: Date.now(),
+            hypothesisId: 'flow',
+          }),
+        },
+      ).catch(() => {});
       // #endregion
     }
 
@@ -362,7 +548,21 @@ export class TranslationService {
     await this.workspaceIndexStore.flush();
     this.updateEmitter.fire();
     // #region agent log
-    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a59154'},body:JSON.stringify({sessionId:'a59154',location:'translationService.ts:translateCurrentFile:return',message:'translateCurrentFile 即将返回',data:{step:'T8',terms:terms.length,sentTerms},timestamp:Date.now(),hypothesisId:'flow'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'a59154',
+      },
+      body: JSON.stringify({
+        sessionId: 'a59154',
+        location: 'translationService.ts:translateCurrentFile:return',
+        message: 'translateCurrentFile 即将返回',
+        data: { step: 'T8', terms: terms.length, sentTerms },
+        timestamp: Date.now(),
+        hypothesisId: 'flow',
+      }),
+    }).catch(() => {});
     // #endregion
     return {
       terms: terms.length,
@@ -370,11 +570,116 @@ export class TranslationService {
     };
   }
 
+  public async translateTerms(terms: string[]): Promise<number> {
+    await this.cacheStore.init();
+    const settings = getTranslatorSettings();
+    const unique = Array.from(
+      new Set(terms.map((term) => term.trim()).filter(Boolean)),
+    );
+    const missing = unique.filter(
+      (term) => !this.cacheStore.get(term, settings),
+    );
+    if (missing.length === 0) {
+      return 0;
+    }
+    await this.ensureTermTranslations(missing);
+    await this.cacheStore.flush();
+    this.updateEmitter.fire();
+    return missing.length;
+  }
+
+  public async collectMissingTermsAroundLine(
+    document: vscode.TextDocument,
+    anchorLine: number,
+    beforeCount: number,
+    afterCount: number,
+    options: MissingTermScanOptions = {},
+  ): Promise<MissingTermsScanResult> {
+    await this.cacheStore.init();
+    const settings = getTranslatorSettings();
+    const pending = options.pendingTerms ?? new Set<string>();
+    const maxScanLines = Math.max(0, options.maxScanLines ?? 400);
+    const lineCount = document.lineCount;
+    if (lineCount === 0) {
+      return { terms: [], hitTop: true, hitBottom: true };
+    }
+
+    const clampedAnchor = Math.min(Math.max(anchorLine, 0), lineCount - 1);
+    const skipRegexes = this.buildSkipRegexes(settings.skipPatterns);
+    const protectedTerms = this.buildProtectedTermSet(settings.protectedTerms);
+    const glossary = this.buildGlossaryMap(settings.glossary);
+    const commentLineMap = this.buildCommentLineMap(document);
+
+    const result: string[] = [];
+    const collected = new Set<string>();
+
+    const addFromLine = (lineNumber: number, remaining: number): number => {
+      if (remaining <= 0) {
+        return remaining;
+      }
+      const line = document.lineAt(lineNumber).text;
+      const terms = this.collectMissingTermsFromLine(
+        line,
+        lineNumber,
+        commentLineMap,
+        settings,
+        skipRegexes,
+        protectedTerms,
+        glossary,
+        collected,
+        pending,
+      );
+      for (const term of terms) {
+        if (remaining <= 0) {
+          break;
+        }
+        collected.add(term);
+        result.push(term);
+        remaining -= 1;
+      }
+      return remaining;
+    };
+
+    let beforeRemaining = Math.max(0, beforeCount);
+    let afterRemaining = Math.max(0, afterCount);
+
+    let scannedUp = 0;
+    let hitTop = false;
+    for (
+      let line = clampedAnchor;
+      line >= 0 && beforeRemaining > 0 && scannedUp <= maxScanLines;
+      line -= 1, scannedUp += 1
+    ) {
+      beforeRemaining = addFromLine(line, beforeRemaining);
+    }
+    if (clampedAnchor - scannedUp < 0 || clampedAnchor === 0) {
+      hitTop = true;
+    }
+
+    let scannedDown = 0;
+    let hitBottom = false;
+    for (
+      let line = clampedAnchor + 1;
+      line < lineCount && afterRemaining > 0 && scannedDown <= maxScanLines;
+      line += 1, scannedDown += 1
+    ) {
+      afterRemaining = addFromLine(line, afterRemaining);
+    }
+    if (clampedAnchor + 1 + scannedDown >= lineCount || clampedAnchor === lineCount - 1) {
+      hitBottom = true;
+    }
+
+    return { terms: result, hitTop, hitBottom };
+  }
+
   public async getTranslatedDocumentText(
     document: vscode.TextDocument,
   ): Promise<string> {
-    const state = await this.getOrBuildDocumentState(document);
     const settings = getTranslatorSettings();
+    const state = await this.getOrBuildDocumentState(
+      document,
+      !settings.autoTranslate,
+    );
     const textMode =
       settings.renderMode === 'bilingual' ? 'bilingual' : 'translatedOnly';
 
@@ -474,7 +779,10 @@ export class TranslationService {
       return [];
     }
 
-    const state = await this.getOrBuildDocumentState(document);
+    const state = await this.getOrBuildDocumentState(
+      document,
+      !settings.autoTranslate,
+    );
     const hints: vscode.InlayHint[] = [];
     const dedupe = new Set<string>();
 
@@ -554,6 +862,7 @@ export class TranslationService {
 
   private async getOrBuildDocumentState(
     document: vscode.TextDocument,
+    autoTranslateMissing = true,
   ): Promise<DocumentTranslationState> {
     const key = document.uri.toString();
     const existing = this.documentState.get(key);
@@ -562,8 +871,10 @@ export class TranslationService {
     }
 
     const occurrences = await this.collectOccurrences(document);
-    const translationByOriginal =
-      await this.buildOriginalToTranslationMap(occurrences);
+    const translationByOriginal = await this.buildOriginalToTranslationMap(
+      occurrences,
+      autoTranslateMissing,
+    );
     const translateComments = this.shouldTranslateComments();
     const comments = translateComments ? collectComments(document) : [];
     const commentTranslations = translateComments
@@ -572,7 +883,10 @@ export class TranslationService {
     const langId = document.languageId;
     let stringLiterals: StringLiteralOccurrence[] = [];
     let stringLiteralTranslations = new Map<string, string>();
-    if (this.shouldTranslateStringLiterals(langId) && (langId === 'c' || langId === 'cpp')) {
+    if (
+      this.shouldTranslateStringLiterals(langId) &&
+      (langId === 'c' || langId === 'cpp')
+    ) {
       stringLiterals = collectCStringLiterals(document);
       stringLiteralTranslations =
         await this.buildStringLiteralTranslationMap(stringLiterals);
@@ -602,7 +916,9 @@ export class TranslationService {
         await collectFromDocumentSymbolsFallback(document);
       const semanticOccurrences = await collectFromSemanticTokens(document);
       const fallbackOccurrences =
-        semanticOccurrences.length === 0 ? collectFromGenericRegex(document) : [];
+        semanticOccurrences.length === 0
+          ? collectFromGenericRegex(document)
+          : [];
       const macroOccurrences = collectFromCMacroLines(document);
       occurrences = [
         ...symbolOccurrences,
@@ -615,7 +931,9 @@ export class TranslationService {
         await collectFromDocumentSymbolsFallback(document);
       const semanticOccurrences = await collectFromSemanticTokens(document);
       const fallbackOccurrences =
-        semanticOccurrences.length === 0 ? collectFromGenericRegex(document) : [];
+        semanticOccurrences.length === 0
+          ? collectFromGenericRegex(document)
+          : [];
       occurrences = [
         ...symbolOccurrences,
         ...semanticOccurrences,
@@ -668,6 +986,7 @@ export class TranslationService {
 
   private async buildOriginalToTranslationMap(
     occurrences: IdentifierOccurrence[],
+    autoTranslateMissing = true,
   ): Promise<Map<string, string>> {
     const settings = getTranslatorSettings();
     const skipRegexes = this.buildSkipRegexes(settings.skipPatterns);
@@ -711,7 +1030,9 @@ export class TranslationService {
       terms.add(normalized);
     }
 
-    await this.ensureTermTranslations(Array.from(terms));
+    if (autoTranslateMissing) {
+      await this.ensureTermTranslations(Array.from(terms));
+    }
 
     const output = new Map<string, string>();
     for (const [original, translated] of directByOriginal.entries()) {
@@ -1066,7 +1387,8 @@ export class TranslationService {
 
     const { prefix } = normalizeIdentifier(fallbackOriginal);
     if (!this.containsCjk(trimmed)) {
-      const fallback = this.buildFallbackIdentifierTranslation(fallbackOriginal);
+      const fallback =
+        this.buildFallbackIdentifierTranslation(fallbackOriginal);
       if (fallback) {
         return fallback;
       }
@@ -1132,6 +1454,127 @@ export class TranslationService {
     const normalized = normalizeIdentifier(identifier).normalized;
     const compact = normalized.replace(/\s+/g, '').toLowerCase();
     return DEFAULT_IDENTIFIER_BLACKLIST.has(compact);
+  }
+
+  private stripStringLiterals(line: string): string {
+    let out = '';
+    let i = 0;
+    let quote: '"' | "'" | '`' | null = null;
+
+    while (i < line.length) {
+      const ch = line[i];
+      if (!quote) {
+        if (ch === '"' || ch === "'" || ch === '`') {
+          quote = ch;
+          out += ' ';
+          i += 1;
+          continue;
+        }
+        out += ch;
+        i += 1;
+        continue;
+      }
+
+      if (ch === '\\') {
+        out += ' ';
+        if (i + 1 < line.length) {
+          out += ' ';
+        }
+        i += 2;
+        continue;
+      }
+
+      if (ch === quote) {
+        out += ' ';
+        quote = null;
+        i += 1;
+        continue;
+      }
+
+      out += ' ';
+      i += 1;
+    }
+
+    return out;
+  }
+
+  private buildCommentLineMap(document: vscode.TextDocument): Map<number, vscode.Range[]> {
+    const comments = collectComments(document);
+    const map = new Map<number, vscode.Range[]>();
+    for (const comment of comments) {
+      const startLine = comment.range.start.line;
+      const endLine = comment.range.end.line;
+      for (let line = startLine; line <= endLine; line += 1) {
+        const ranges = map.get(line) ?? [];
+        ranges.push(comment.range);
+        map.set(line, ranges);
+      }
+    }
+    return map;
+  }
+
+  private isRangeInAny(range: vscode.Range, ranges: vscode.Range[]): boolean {
+    for (const candidate of ranges) {
+      if (candidate.contains(range.start) && candidate.contains(range.end)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private collectMissingTermsFromLine(
+    lineText: string,
+    lineNumber: number,
+    commentLineMap: Map<number, vscode.Range[]>,
+    settings: TranslatorSettings,
+    skipRegexes: RegExp[],
+    protectedTerms: Set<string>,
+    glossary: Map<string, string>,
+    collected: Set<string>,
+    pending: Set<string>,
+  ): string[] {
+    const results: string[] = [];
+    const commentRanges = commentLineMap.get(lineNumber) ?? [];
+    const lineWithoutStrings = this.stripStringLiterals(lineText);
+
+    IDENTIFIER_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = IDENTIFIER_REGEX.exec(lineWithoutStrings)) !== null) {
+      const name = match[0];
+      const start = new vscode.Position(lineNumber, match.index);
+      const end = new vscode.Position(lineNumber, match.index + name.length);
+      const range = new vscode.Range(start, end);
+      if (commentRanges.length > 0 && this.isRangeInAny(range, commentRanges)) {
+        continue;
+      }
+
+      if (
+        shouldSkipIdentifier(name, skipRegexes) ||
+        this.isKeyword(name) ||
+        this.isBlacklistedIdentifier(name)
+      ) {
+        continue;
+      }
+
+      const normalized = normalizeIdentifier(name).normalized;
+      if (!normalized) {
+        continue;
+      }
+      if (this.isProtectedIdentifier(name, normalized, protectedTerms)) {
+        continue;
+      }
+      if (this.findGlossaryTranslation(name, normalized, glossary)) {
+        continue;
+      }
+      if (collected.has(normalized) || pending.has(normalized)) {
+        continue;
+      }
+      if (!this.cacheStore.get(normalized, settings)) {
+        results.push(normalized);
+      }
+    }
+
+    return results;
   }
 
   private shouldTranslateComments(): boolean {

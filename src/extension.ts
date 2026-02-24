@@ -87,6 +87,12 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  const pendingAutoTermsByDoc = new Map<string, Set<string>>();
+  const lastAutoVisibleHash = new Map<string, string>();
+  const autoTranslateMaxPendingBatches = 4;
+  const autoTranslateMaxPendingTerms = autoTranslateMaxPendingBatches *
+    Math.max(1, getTranslatorSettings().maxBatchTerms);
+
   let autoTranslateTimer: NodeJS.Timeout | undefined;
   const scheduleAutoTranslate = (
     editor: vscode.TextEditor | undefined,
@@ -100,12 +106,60 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
     const document = editor.document;
+    const visible = editor.visibleRanges?.[0];
+    if (!visible) {
+      return;
+    }
+    const visibleHash = `${visible.start.line}:${visible.end.line}`;
+    const lastHash = lastAutoVisibleHash.get(document.uri.toString());
+    if (lastHash === visibleHash) {
+      return;
+    }
+    lastAutoVisibleHash.set(document.uri.toString(), visibleHash);
     const debounceMs = Math.max(100, settings.autoTranslateDebounceMs);
     autoTranslateTimer = setTimeout(() => {
       autoTranslateTimer = undefined;
       void (async () => {
         try {
-          await translationService.translateCurrentFile(document);
+          const anchorLine = Math.floor(
+            (visible.start.line + visible.end.line) / 2,
+          );
+          const docKey = document.uri.toString();
+          const pending =
+            pendingAutoTermsByDoc.get(docKey) ?? new Set<string>();
+          const scanResult = await translationService.collectMissingTermsAroundLine(
+            document,
+            anchorLine,
+            20,
+            60,
+            { pendingTerms: pending, maxScanLines: 400 },
+          );
+          for (const term of scanResult.terms) {
+            pending.add(term);
+          }
+          if (pending.size > 0) {
+            pendingAutoTermsByDoc.set(docKey, pending);
+          }
+          const shouldFlushBySize = pending.size >= settings.maxBatchTerms;
+          const shouldFlushByCap = pending.size >= autoTranslateMaxPendingTerms;
+          const shouldFlushByBoundary = scanResult.hitTop && scanResult.hitBottom;
+          if (shouldFlushBySize || shouldFlushByCap || shouldFlushByBoundary) {
+            const maxSend = shouldFlushByBoundary
+              ? pending.size
+              : Math.max(1, settings.maxBatchTerms);
+            const termsToSend = Array.from(pending).slice(0, maxSend);
+            for (const term of termsToSend) {
+              pending.delete(term);
+            }
+            if (pending.size === 0) {
+              pendingAutoTermsByDoc.delete(docKey);
+            } else {
+              pendingAutoTermsByDoc.set(docKey, pending);
+            }
+            if (termsToSend.length > 0) {
+              await translationService.translateTerms(termsToSend);
+            }
+          }
           await refreshVisibleTranslatedForSource(
             translationService,
             translatedContentProvider,
@@ -118,6 +172,11 @@ export function activate(context: vscode.ExtensionContext) {
     }, debounceMs);
   };
   const onEditorChanged = vscode.window.onDidChangeActiveTextEditor(scheduleAutoTranslate);
+  const onVisibleRangesChanged = vscode.window.onDidChangeTextEditorVisibleRanges(
+    (event) => {
+      scheduleAutoTranslate(event.textEditor);
+    },
+  );
 
   const pendingRefreshTimers = new Map<string, NodeJS.Timeout>();
   const scheduleVisibleTranslatedRefresh = (
@@ -194,6 +253,8 @@ export function activate(context: vscode.ExtensionContext) {
       clearTimeout(timer);
     }
     pendingRefreshTimers.clear();
+    pendingAutoTermsByDoc.clear();
+    lastAutoVisibleHash.clear();
   });
 
   // Automatically apply ghost theme on first activation
@@ -224,6 +285,7 @@ export function activate(context: vscode.ExtensionContext) {
     onSaved,
     onClosed,
     onConfigChanged,
+    onVisibleRangesChanged,
     cleanupTimers,
   );
 }
