@@ -89,6 +89,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   const pendingAutoTermsByDoc = new Map<string, Set<string>>();
   const lastAutoVisibleHash = new Map<string, string>();
+  const lastAutoAnchorByDoc = new Map<string, number>();
+  const minAutoScrollLines = 5;
   const autoTranslateMaxPendingBatches = 4;
   const autoTranslateMaxPendingTerms = autoTranslateMaxPendingBatches *
     Math.max(1, getTranslatorSettings().maxBatchTerms);
@@ -96,6 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
   let autoTranslateTimer: NodeJS.Timeout | undefined;
   const scheduleAutoTranslate = (
     editor: vscode.TextEditor | undefined,
+    options: { force?: boolean; immediate?: boolean } = {},
   ): void => {
     if (autoTranslateTimer) {
       clearTimeout(autoTranslateTimer);
@@ -110,20 +113,34 @@ export function activate(context: vscode.ExtensionContext) {
     if (!visible) {
       return;
     }
+    const anchorLine = Math.floor(
+      (visible.start.line + visible.end.line) / 2,
+    );
+    const docKey = document.uri.toString();
+    const lastAnchor = lastAutoAnchorByDoc.get(docKey);
+    if (!options.force && lastAnchor !== undefined) {
+      const minDelta = Math.max(
+        minAutoScrollLines,
+        Math.floor((visible.end.line - visible.start.line + 1) * 0.25),
+      );
+      if (Math.abs(anchorLine - lastAnchor) < minDelta) {
+        return;
+      }
+    }
+    lastAutoAnchorByDoc.set(docKey, anchorLine);
     const visibleHash = `${visible.start.line}:${visible.end.line}`;
     const lastHash = lastAutoVisibleHash.get(document.uri.toString());
-    if (lastHash === visibleHash) {
+    if (!options.force && lastHash === visibleHash) {
       return;
     }
     lastAutoVisibleHash.set(document.uri.toString(), visibleHash);
-    const debounceMs = Math.max(100, settings.autoTranslateDebounceMs);
+    const debounceMs = options.immediate
+      ? 0
+      : Math.max(100, settings.autoTranslateDebounceMs);
     autoTranslateTimer = setTimeout(() => {
       autoTranslateTimer = undefined;
       void (async () => {
         try {
-          const anchorLine = Math.floor(
-            (visible.start.line + visible.end.line) / 2,
-          );
           const docKey = document.uri.toString();
           const pending =
             pendingAutoTermsByDoc.get(docKey) ?? new Set<string>();
@@ -175,6 +192,24 @@ export function activate(context: vscode.ExtensionContext) {
   const onVisibleRangesChanged = vscode.window.onDidChangeTextEditorVisibleRanges(
     (event) => {
       scheduleAutoTranslate(event.textEditor);
+    },
+  );
+  const onSelectionChanged = vscode.window.onDidChangeTextEditorSelection(
+    (event) => {
+      const editor = event.textEditor;
+      if (editor.document.uri.scheme !== 'file') {
+        return;
+      }
+      const activeLine = editor.selection.active.line;
+      const docKey = editor.document.uri.toString();
+      const lastAnchor = lastAutoAnchorByDoc.get(docKey);
+      const bigJump =
+        lastAnchor !== undefined &&
+        Math.abs(activeLine - lastAnchor) >= minAutoScrollLines * 2;
+      const commandJump = event.kind === vscode.TextEditorSelectionChangeKind.Command;
+      if (bigJump || commandJump) {
+        scheduleAutoTranslate(editor, { force: true, immediate: true });
+      }
     },
   );
 
@@ -255,6 +290,7 @@ export function activate(context: vscode.ExtensionContext) {
     pendingRefreshTimers.clear();
     pendingAutoTermsByDoc.clear();
     lastAutoVisibleHash.clear();
+    lastAutoAnchorByDoc.clear();
   });
 
   // Automatically apply ghost theme on first activation
@@ -286,6 +322,7 @@ export function activate(context: vscode.ExtensionContext) {
     onClosed,
     onConfigChanged,
     onVisibleRangesChanged,
+    onSelectionChanged,
     cleanupTimers,
   );
 }

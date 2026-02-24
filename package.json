@@ -67,7 +67,7 @@
       },
       {
         "command": "codeTranslator.toggleAutoTranslate",
-        "title": "Code Decode:2 Auto Translate Current File"
+        "title": "Code Decode:2 Auto Translate "
       },
       {
         "command": "codeTranslator.useInlayMode",

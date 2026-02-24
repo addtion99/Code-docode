@@ -31,6 +31,22 @@ import { DoubaoProvider } from './doubaoProvider';
 import { GlmProvider } from './glmProvider';
 import { OpenAICompatibleProvider } from './openaiCompatibleProvider';
 import { TranslationProvider } from './provider';
+import { buildProjectContextSummary } from './projectContextSummary';
+import {
+  MissingTermScanOptions,
+  MissingTermsScanResult,
+  buildCommentLineMap,
+  buildGlossaryMap,
+  buildProtectedTermSet,
+  buildSkipRegexes,
+  collectMissingTermsFromLine,
+  extractNormalizedTerms,
+  findGlossaryTranslation,
+  isBlacklistedIdentifier,
+  isKeyword,
+  isProtectedIdentifier,
+  toSafeIdentifierTranslation,
+} from './translationUtils';
 
 interface DocumentTranslationState {
   occurrences: IdentifierOccurrence[];
@@ -40,133 +56,6 @@ interface DocumentTranslationState {
   stringLiterals: StringLiteralOccurrence[];
   stringLiteralTranslations: Map<string, string>;
 }
-
-const COMMON_KEYWORDS = new Set([
-  'if',
-  'else',
-  'for',
-  'while',
-  'do',
-  'switch',
-  'case',
-  'default',
-  'break',
-  'continue',
-  'return',
-  'goto',
-  'class',
-  'struct',
-  'enum',
-  'interface',
-  'namespace',
-  'function',
-  'def',
-  'lambda',
-  'var',
-  'let',
-  'const',
-  'static',
-  'public',
-  'private',
-  'protected',
-  'export',
-  'import',
-  'from',
-  'as',
-  'try',
-  'catch',
-  'finally',
-  'throw',
-  'throws',
-  'new',
-  'delete',
-  'this',
-  'super',
-  'true',
-  'false',
-  'null',
-  'undefined',
-  'void',
-  'int',
-  'float',
-  'double',
-  'char',
-  'bool',
-  'boolean',
-  'long',
-  'short',
-  'signed',
-  'unsigned',
-  'package',
-  'include',
-  'define',
-  'endif',
-  'ifdef',
-  'ifndef',
-  'elif',
-  'using',
-  'typedef',
-  'template',
-  'typename',
-  'operator',
-  'extends',
-  'implements',
-  'yield',
-  'await',
-  'async',
-  'sizeof',
-]);
-
-const DEFAULT_IDENTIFIER_BLACKLIST = new Set([
-  'main',
-  'tostring',
-  'args',
-  'init',
-  'constructor',
-  'valueof',
-  'hashcode',
-]);
-
-const IDENTIFIER_REGEX = /[A-Za-z_][A-Za-z0-9_]*/g;
-
-const FALLBACK_WORD_MAP = new Map<string, string>([
-  ['max', '最大'],
-  ['no', '不'],
-  ['scan', '扫描'],
-  ['string', '字符串'],
-  ['use', '使用'],
-  ['protos', '原型'],
-  ['proto', '原型'],
-  ['str', '字符串'],
-  ['bytes', '字节'],
-  ['byte', '字节'],
-  ['buffer', '缓冲区'],
-  ['state', '状态'],
-  ['comment', '注释'],
-  ['size', '大小'],
-  ['check', '检查'],
-  ['valid', '有效'],
-  ['user', '用户'],
-  ['username', '用户名'],
-  ['profile', '资料'],
-  ['userprofile', '用户资料'],
-  ['data', '数据'],
-  ['process', '处理'],
-  ['current', '当前'],
-  ['index', '索引'],
-  ['success', '成功'],
-  ['flag', '标记'],
-  ['retry', '重试'],
-  ['count', '次数'],
-  ['temp', '临时'],
-  ['value', '值'],
-  ['active', '激活'],
-  ['name', '名称'],
-  ['id', 'ID'],
-  ['input', '输入'],
-  ['putchar', '输出字符'],
-  ['unput', '退回'],
-]);
 
 export interface WorkspaceTranslationResult {
   files: number;
@@ -179,17 +68,6 @@ export interface WorkspaceTranslationResult {
 export interface FileTranslationResult {
   terms: number;
   sentTerms: number;
-}
-
-interface MissingTermScanOptions {
-  pendingTerms?: Set<string>;
-  maxScanLines?: number;
-}
-
-export interface MissingTermsScanResult {
-  terms: string[];
-  hitTop: boolean;
-  hitBottom: boolean;
 }
 
 export class TranslationService {
@@ -317,7 +195,10 @@ export class TranslationService {
         }
         scannedFiles += 1;
         const occurrences = await this.collectOccurrences(document);
-        const terms = this.extractNormalizedTerms(occurrences);
+        const terms = extractNormalizedTerms(
+          occurrences,
+          this.buildTranslationFilters(),
+        );
         this.workspaceIndexStore.upsertFile(
           workspaceKey,
           fileUri,
@@ -429,7 +310,10 @@ export class TranslationService {
       }),
     }).catch(() => {});
     // #endregion
-    const terms = this.extractNormalizedTerms(occurrences);
+    const terms = extractNormalizedTerms(
+      occurrences,
+      this.buildTranslationFilters(),
+    );
     // #region agent log
     fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
       method: 'POST',
@@ -605,10 +489,8 @@ export class TranslationService {
     }
 
     const clampedAnchor = Math.min(Math.max(anchorLine, 0), lineCount - 1);
-    const skipRegexes = this.buildSkipRegexes(settings.skipPatterns);
-    const protectedTerms = this.buildProtectedTermSet(settings.protectedTerms);
-    const glossary = this.buildGlossaryMap(settings.glossary);
-    const commentLineMap = this.buildCommentLineMap(document);
+    const filters = this.buildTranslationFilters();
+    const commentLineMap = buildCommentLineMap(document);
 
     const result: string[] = [];
     const collected = new Set<string>();
@@ -618,16 +500,14 @@ export class TranslationService {
         return remaining;
       }
       const line = document.lineAt(lineNumber).text;
-      const terms = this.collectMissingTermsFromLine(
+      const terms = collectMissingTermsFromLine(
         line,
         lineNumber,
         commentLineMap,
-        settings,
-        skipRegexes,
-        protectedTerms,
-        glossary,
+        filters,
         collected,
         pending,
+        (term) => Boolean(this.cacheStore.get(term, settings)),
       );
       for (const term of terms) {
         if (remaining <= 0) {
@@ -699,7 +579,7 @@ export class TranslationService {
 
       const replacement = buildRenderedIdentifier(
         occurrence.name,
-        this.toSafeIdentifierTranslation(translated, occurrence.name),
+        toSafeIdentifierTranslation(translated, occurrence.name),
         textMode,
       );
 
@@ -796,7 +676,7 @@ export class TranslationService {
         continue;
       }
 
-      const safeTranslation = this.toSafeIdentifierTranslation(
+      const safeTranslation = toSafeIdentifierTranslation(
         translated,
         occurrence.name,
       );
@@ -954,34 +834,10 @@ export class TranslationService {
   private extractNormalizedTerms(
     occurrences: IdentifierOccurrence[],
   ): string[] {
-    const settings = getTranslatorSettings();
-    const skipRegexes = this.buildSkipRegexes(settings.skipPatterns);
-    const protectedTerms = this.buildProtectedTermSet(settings.protectedTerms);
-    const glossary = this.buildGlossaryMap(settings.glossary);
-    const terms = new Set<string>();
-    for (const occurrence of occurrences) {
-      if (
-        shouldSkipIdentifier(occurrence.name, skipRegexes) ||
-        this.isKeyword(occurrence.name) ||
-        this.isBlacklistedIdentifier(occurrence.name)
-      ) {
-        continue;
-      }
-      const normalized = normalizeIdentifier(occurrence.name).normalized;
-      if (!normalized) {
-        continue;
-      }
-      if (
-        this.isProtectedIdentifier(occurrence.name, normalized, protectedTerms)
-      ) {
-        continue;
-      }
-      if (this.findGlossaryTranslation(occurrence.name, normalized, glossary)) {
-        continue;
-      }
-      terms.add(normalized);
-    }
-    return Array.from(terms);
+    return extractNormalizedTerms(
+      occurrences,
+      this.buildTranslationFilters(),
+    );
   }
 
   private async buildOriginalToTranslationMap(
@@ -989,18 +845,16 @@ export class TranslationService {
     autoTranslateMissing = true,
   ): Promise<Map<string, string>> {
     const settings = getTranslatorSettings();
-    const skipRegexes = this.buildSkipRegexes(settings.skipPatterns);
-    const protectedTerms = this.buildProtectedTermSet(settings.protectedTerms);
-    const glossary = this.buildGlossaryMap(settings.glossary);
+    const filters = this.buildTranslationFilters();
     const normalizedByOriginal = new Map<string, string>();
     const directByOriginal = new Map<string, string>();
     const terms = new Set<string>();
 
     for (const occurrence of occurrences) {
       if (
-        shouldSkipIdentifier(occurrence.name, skipRegexes) ||
-        this.isKeyword(occurrence.name) ||
-        this.isBlacklistedIdentifier(occurrence.name)
+        shouldSkipIdentifier(occurrence.name, filters.skipRegexes) ||
+        isKeyword(occurrence.name) ||
+        isBlacklistedIdentifier(occurrence.name)
       ) {
         continue;
       }
@@ -1010,16 +864,20 @@ export class TranslationService {
       }
 
       if (
-        this.isProtectedIdentifier(occurrence.name, normalized, protectedTerms)
+        isProtectedIdentifier(
+          occurrence.name,
+          normalized,
+          filters.protectedTerms,
+        )
       ) {
         directByOriginal.set(occurrence.name, occurrence.name);
         continue;
       }
 
-      const glossaryTranslation = this.findGlossaryTranslation(
+      const glossaryTranslation = findGlossaryTranslation(
         occurrence.name,
         normalized,
-        glossary,
+        filters.glossary,
       );
       if (glossaryTranslation) {
         directByOriginal.set(occurrence.name, glossaryTranslation);
@@ -1306,275 +1164,17 @@ export class TranslationService {
     }
   }
 
-  private buildSkipRegexes(patterns: string[]): RegExp[] {
-    const result: RegExp[] = [];
-    for (const pattern of patterns) {
-      try {
-        result.push(new RegExp(pattern));
-      } catch {
-        // Ignore invalid user regex pattern.
-      }
-    }
-    return result;
-  }
-
-  private buildProtectedTermSet(terms: string[]): Set<string> {
-    const set = new Set<string>();
-    for (const term of terms) {
-      const cleaned = term.trim().toLowerCase();
-      if (!cleaned) {
-        continue;
-      }
-      set.add(cleaned);
-    }
-    return set;
-  }
-
-  private buildGlossaryMap(
-    glossary: TranslatorSettings['glossary'],
-  ): Map<string, string> {
-    const map = new Map<string, string>();
-    for (const [rawKey, rawValue] of Object.entries(glossary)) {
-      const key = rawKey.trim().toLowerCase();
-      const value = rawValue.trim();
-      if (!key || !value) {
-        continue;
-      }
-      map.set(key, value);
-    }
-    return map;
-  }
-
-  private isProtectedIdentifier(
-    identifier: string,
-    normalized: string,
-    protectedTerms: Set<string>,
-  ): boolean {
-    if (protectedTerms.size === 0) {
-      return false;
-    }
-    const lowerOriginal = identifier.toLowerCase();
-    const lowerNormalized = normalized.toLowerCase();
-    return (
-      protectedTerms.has(lowerOriginal) || protectedTerms.has(lowerNormalized)
-    );
-  }
-
-  private findGlossaryTranslation(
-    identifier: string,
-    normalized: string,
-    glossary: Map<string, string>,
-  ): string | undefined {
-    if (glossary.size === 0) {
-      return undefined;
-    }
-
-    const lowerOriginal = identifier.toLowerCase();
-    const lowerNormalized = normalized.toLowerCase();
-    return (
-      glossary.get(lowerOriginal) ?? glossary.get(lowerNormalized) ?? undefined
-    );
-  }
-
-  private toSafeIdentifierTranslation(
-    translated: string,
-    fallbackOriginal: string,
-  ): string {
-    const trimmed = translated.trim();
-    if (!trimmed) {
-      return fallbackOriginal;
-    }
-
-    const { prefix } = normalizeIdentifier(fallbackOriginal);
-    if (!this.containsCjk(trimmed)) {
-      const fallback =
-        this.buildFallbackIdentifierTranslation(fallbackOriginal);
-      if (fallback) {
-        return fallback;
-      }
-    }
-    const rawParts = trimmed.match(/[\p{L}\p{N}_$]+/gu) ?? [];
-    const parts = rawParts
-      .flatMap((part) => part.split(/_+/))
-      .map((part) => part.trim())
-      .filter(Boolean);
-    let merged = this.joinTranslatedParts(parts);
-    if (!merged) {
-      return fallbackOriginal;
-    }
-
-    if (prefix) {
-      if (merged.toLowerCase().startsWith(prefix.toLowerCase())) {
-        return merged;
-      }
-      return `${prefix}${merged}`;
-    }
-
-    const firstChar = merged[0];
-    if (!/[\p{L}_$]/u.test(firstChar)) {
-      merged = `_${merged}`;
-    }
-
-    return merged;
-  }
-
-  private containsCjk(text: string): boolean {
-    return /[\p{Script=Han}]/u.test(text);
-  }
-
-  private buildFallbackIdentifierTranslation(
-    identifier: string,
-  ): string | undefined {
-    const normalized = normalizeIdentifier(identifier);
-    if (normalized.parts.length === 0) {
-      return undefined;
-    }
-    const translatedParts = normalized.parts.map(
-      (part) => FALLBACK_WORD_MAP.get(part) ?? part,
-    );
-    const changed = translatedParts.some(
-      (part, idx) => part !== normalized.parts[idx],
-    );
-    if (!changed) {
-      return undefined;
-    }
-    const merged = this.joinTranslatedParts(translatedParts);
-    return normalized.prefix ? `${normalized.prefix}${merged}` : merged;
-  }
-
-  private joinTranslatedParts(parts: string[]): string {
-    return parts.join('_');
-  }
-
-  private isKeyword(identifier: string): boolean {
-    return COMMON_KEYWORDS.has(identifier.toLowerCase());
-  }
-
-  private isBlacklistedIdentifier(identifier: string): boolean {
-    const normalized = normalizeIdentifier(identifier).normalized;
-    const compact = normalized.replace(/\s+/g, '').toLowerCase();
-    return DEFAULT_IDENTIFIER_BLACKLIST.has(compact);
-  }
-
-  private stripStringLiterals(line: string): string {
-    let out = '';
-    let i = 0;
-    let quote: '"' | "'" | '`' | null = null;
-
-    while (i < line.length) {
-      const ch = line[i];
-      if (!quote) {
-        if (ch === '"' || ch === "'" || ch === '`') {
-          quote = ch;
-          out += ' ';
-          i += 1;
-          continue;
-        }
-        out += ch;
-        i += 1;
-        continue;
-      }
-
-      if (ch === '\\') {
-        out += ' ';
-        if (i + 1 < line.length) {
-          out += ' ';
-        }
-        i += 2;
-        continue;
-      }
-
-      if (ch === quote) {
-        out += ' ';
-        quote = null;
-        i += 1;
-        continue;
-      }
-
-      out += ' ';
-      i += 1;
-    }
-
-    return out;
-  }
-
-  private buildCommentLineMap(document: vscode.TextDocument): Map<number, vscode.Range[]> {
-    const comments = collectComments(document);
-    const map = new Map<number, vscode.Range[]>();
-    for (const comment of comments) {
-      const startLine = comment.range.start.line;
-      const endLine = comment.range.end.line;
-      for (let line = startLine; line <= endLine; line += 1) {
-        const ranges = map.get(line) ?? [];
-        ranges.push(comment.range);
-        map.set(line, ranges);
-      }
-    }
-    return map;
-  }
-
-  private isRangeInAny(range: vscode.Range, ranges: vscode.Range[]): boolean {
-    for (const candidate of ranges) {
-      if (candidate.contains(range.start) && candidate.contains(range.end)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private collectMissingTermsFromLine(
-    lineText: string,
-    lineNumber: number,
-    commentLineMap: Map<number, vscode.Range[]>,
-    settings: TranslatorSettings,
-    skipRegexes: RegExp[],
-    protectedTerms: Set<string>,
-    glossary: Map<string, string>,
-    collected: Set<string>,
-    pending: Set<string>,
-  ): string[] {
-    const results: string[] = [];
-    const commentRanges = commentLineMap.get(lineNumber) ?? [];
-    const lineWithoutStrings = this.stripStringLiterals(lineText);
-
-    IDENTIFIER_REGEX.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = IDENTIFIER_REGEX.exec(lineWithoutStrings)) !== null) {
-      const name = match[0];
-      const start = new vscode.Position(lineNumber, match.index);
-      const end = new vscode.Position(lineNumber, match.index + name.length);
-      const range = new vscode.Range(start, end);
-      if (commentRanges.length > 0 && this.isRangeInAny(range, commentRanges)) {
-        continue;
-      }
-
-      if (
-        shouldSkipIdentifier(name, skipRegexes) ||
-        this.isKeyword(name) ||
-        this.isBlacklistedIdentifier(name)
-      ) {
-        continue;
-      }
-
-      const normalized = normalizeIdentifier(name).normalized;
-      if (!normalized) {
-        continue;
-      }
-      if (this.isProtectedIdentifier(name, normalized, protectedTerms)) {
-        continue;
-      }
-      if (this.findGlossaryTranslation(name, normalized, glossary)) {
-        continue;
-      }
-      if (collected.has(normalized) || pending.has(normalized)) {
-        continue;
-      }
-      if (!this.cacheStore.get(normalized, settings)) {
-        results.push(normalized);
-      }
-    }
-
-    return results;
+  private buildTranslationFilters(): {
+    skipRegexes: RegExp[];
+    protectedTerms: Set<string>;
+    glossary: Map<string, string>;
+  } {
+    const settings = getTranslatorSettings();
+    return {
+      skipRegexes: buildSkipRegexes(settings.skipPatterns),
+      protectedTerms: buildProtectedTermSet(settings.protectedTerms),
+      glossary: buildGlossaryMap(settings.glossary),
+    };
   }
 
   private shouldTranslateComments(): boolean {
@@ -1595,64 +1195,8 @@ export class TranslationService {
       this.projectContextSummaryCache = '';
       return undefined;
     }
-
-    const decoder = new TextDecoder('utf-8');
-    const summaries: string[] = [];
-
-    const readRootFile = async (
-      fileName: string,
-    ): Promise<string | undefined> => {
-      try {
-        const uri = vscode.Uri.joinPath(workspaceFolder.uri, fileName);
-        const data = await vscode.workspace.fs.readFile(uri);
-        return decoder.decode(data);
-      } catch {
-        return undefined;
-      }
-    };
-
-    const readmeText = await readRootFile('README.md');
-    if (readmeText) {
-      const headingMatches = [...readmeText.matchAll(/^#{1,3}\s+(.+)$/gm)]
-        .slice(0, 6)
-        .map((item) => item[1].trim());
-      const codeSpans = [...readmeText.matchAll(/`([^`]{2,40})`/g)]
-        .slice(0, 20)
-        .map((item) => item[1].trim().toLowerCase())
-        .filter(Boolean);
-      const compactCodeSpans = Array.from(new Set(codeSpans)).slice(0, 12);
-      if (headingMatches.length > 0) {
-        summaries.push(`readme_headings:${headingMatches.join('|')}`);
-      }
-      if (compactCodeSpans.length > 0) {
-        summaries.push(`readme_terms:${compactCodeSpans.join(',')}`);
-      }
-    }
-
-    const packageText = await readRootFile('package.json');
-    if (packageText) {
-      try {
-        const parsed = JSON.parse(packageText) as {
-          name?: string;
-          displayName?: string;
-          description?: string;
-        };
-        const pkgBits = [
-          parsed.name?.trim(),
-          parsed.displayName?.trim(),
-          parsed.description?.trim(),
-        ].filter(Boolean);
-        if (pkgBits.length > 0) {
-          summaries.push(`package:${pkgBits.join(' | ')}`);
-        }
-      } catch {
-        // Ignore invalid package json parsing.
-      }
-    }
-
-    const joined = summaries.join(' ; ').replace(/\s+/g, ' ').trim();
-    const limited = joined.slice(0, 700);
-    this.projectContextSummaryCache = limited;
-    return limited || undefined;
+    const summary = await buildProjectContextSummary(workspaceFolder);
+    this.projectContextSummaryCache = summary;
+    return summary || undefined;
   }
 }
