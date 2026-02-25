@@ -203,7 +203,9 @@ export class OpenAICompatibleProvider implements TranslationProvider {
     const translatedMap = new Map<string, string>();
     for (const term of request.terms) {
       const value = rawMap[term];
-      translatedMap.set(term, value ? value.trim() : term);
+      if (value && value.trim()) {
+        translatedMap.set(term, value.trim());
+      }
     }
     return translatedMap;
   }

@@ -295,7 +295,7 @@
         },
         "codeTranslator.autoTranslateDebounceMs": {
           "type": "number",
-          "default": 2000,
+          "default": 1000,
           "minimum": 100,
           "description": "Debounce delay in ms before auto-translating the active file. Increase to reduce API calls when switching tabs quickly."
         }

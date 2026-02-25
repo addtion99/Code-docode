@@ -457,7 +457,7 @@ export class TranslationService {
       new Set(terms.map((term) => term.trim()).filter(Boolean)),
     );
     const missing = unique.filter(
-      (term) => !this.cacheStore.get(term, settings),
+      (term) => !this.hasUsableCache(term, settings),
     );
     if (missing.length === 0) {
       return 0;
@@ -468,6 +468,12 @@ export class TranslationService {
     return missing.length;
   }
 
+  /**
+   * 这个函数的'是否有新单词'的主要判断逻辑，
+   * 主要体现在调用 collectMissingTermsFromLine 时的过滤（即pending和cacheStore.get的结合）。
+   * 在内部，addFromLine -> collectMissingTermsFromLine，只有当 pending 没有包含该 term 且缓存中没有翻译，
+   * 才认定这个term是新词，才会加到 result。
+   */
   public async collectMissingTermsAroundLine(
     document: vscode.TextDocument,
     anchorLine: number,
@@ -503,7 +509,7 @@ export class TranslationService {
         filters,
         collected,
         pending,
-        (term) => Boolean(this.cacheStore.get(term, settings)),
+        (term) => this.hasUsableCache(term, settings),
       );
       for (const term of terms) {
         if (remaining <= 0) {
@@ -914,7 +920,7 @@ export class TranslationService {
     }
     for (const [original, normalized] of normalizedByOriginal.entries()) {
       const translated = this.cacheStore.get(normalized, settings);
-      if (translated) {
+      if (translated && translated !== normalized) {
         output.set(original, translated);
       }
     }
@@ -924,7 +930,7 @@ export class TranslationService {
   private async ensureTermTranslations(terms: string[]): Promise<void> {
     const settings = getTranslatorSettings();
     const missing = terms.filter(
-      (term) => !this.cacheStore.get(term, settings),
+      (term) => !this.hasUsableCache(term, settings),
     );
     if (missing.length === 0) {
       return;
@@ -1107,7 +1113,15 @@ export class TranslationService {
     terms: string[],
     settings: TranslatorSettings,
   ): number {
-    return terms.filter((term) => !this.cacheStore.get(term, settings)).length;
+    return terms.filter((term) => !this.hasUsableCache(term, settings)).length;
+  }
+
+  private hasUsableCache(
+    term: string,
+    settings: TranslatorSettings,
+  ): boolean {
+    const cached = this.cacheStore.get(term, settings);
+    return Boolean(cached && cached !== term);
   }
 
   private getWorkspaceKey(): string {

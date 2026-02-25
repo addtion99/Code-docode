@@ -77,9 +77,24 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   const pendingAutoTermsByDoc = new Map<string, Set<string>>();
+  const autoTranslateRetryTimers = new Map<string, NodeJS.Timeout>();
+  const autoTranslateDebounceTimers = new Map<string, NodeJS.Timeout>();
   const lastAutoVisibleHash = new Map<string, string>();
   const lastAutoAnchorByDoc = new Map<string, number>();
   const minAutoScrollLines = 5;
+  const autoTranslateLog = vscode.window.createOutputChannel(
+    'Code Decode AutoTranslate',
+  );
+  let autoTranslateLogShown = false;
+  const logAutoTranslate = (message: string): void => {
+    if (!autoTranslateLogShown) {
+      autoTranslateLogShown = true;
+      autoTranslateLog.show(true);
+    }
+    autoTranslateLog.appendLine(`[${new Date().toISOString()}] ${message}`);
+    // Also log to Debug Console for quick access.
+    console.log(`[Code Decode AutoTranslate] ${message}`);
+  };
   function scheduleAutoTranslate(
     editor: vscode.TextEditor | undefined,
     options: { force?: boolean; immediate?: boolean } = {},
@@ -93,12 +108,36 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
     const document = editor.document;
+    const docKey = document.uri.toString();
+    if (!options.immediate && settings.autoTranslateDebounceMs > 0) {
+      const existing = autoTranslateDebounceTimers.get(docKey);
+      if (existing) {
+        clearTimeout(existing);
+      }
+      const debounceTimer = setTimeout(() => {
+        autoTranslateDebounceTimers.delete(docKey);
+        scheduleAutoTranslate(editor, { ...options, immediate: true });
+      }, settings.autoTranslateDebounceMs);
+      autoTranslateDebounceTimers.set(docKey, debounceTimer);
+      return;
+    }
     const visible = editor.visibleRanges?.[0];
     if (!visible) {
+      if (options.force && !autoTranslateRetryTimers.has(docKey)) {
+        const retryTimer = setTimeout(() => {
+          autoTranslateRetryTimers.delete(docKey);
+          scheduleAutoTranslate(editor, { force: true, immediate: true });
+        }, 120);
+        autoTranslateRetryTimers.set(docKey, retryTimer);
+      }
       return;
     }
     const anchorLine = Math.floor((visible.start.line + visible.end.line) / 2);
-    const docKey = document.uri.toString();
+    const retryTimer = autoTranslateRetryTimers.get(docKey);
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      autoTranslateRetryTimers.delete(docKey);
+    }
     const lastAnchor = lastAutoAnchorByDoc.get(docKey);
     if (!options.force && lastAnchor !== undefined) {
       const minDelta = Math.max(
@@ -126,6 +165,11 @@ export function activate(context: vscode.ExtensionContext) {
           0,
           visibleEnd - visibleStart + 1 + 10,
         );
+        logAutoTranslate(
+          `trigger doc=${docKey} visible=${visibleStart}-${visibleEnd} anchor=${anchorLine} pending=${pending.size} force=${Boolean(
+            options.force,
+          )}`,
+        );
         const preflight =
           await translationService.collectMissingTermsAroundLine(
             document,
@@ -137,7 +181,11 @@ export function activate(context: vscode.ExtensionContext) {
               maxScanLines: Math.max(0, preflightAfterCount + 5),
             },
           );
+        logAutoTranslate(
+          `preflight terms=${preflight.terms.length} scanLines=${preflightAfterCount}`,
+        );
         if (preflight.terms.length === 0) {
+          logAutoTranslate('preflight empty -> skip scan');
           return;
         }
         const scanResult =
@@ -151,6 +199,9 @@ export function activate(context: vscode.ExtensionContext) {
               maxScanLines: 400,
             },
           );
+        logAutoTranslate(
+          `scan terms=${scanResult.terms.length} hitTop=${scanResult.hitTop} hitBottom=${scanResult.hitBottom}`,
+        );
         for (const term of scanResult.terms) {
           pending.add(term);
         }
@@ -159,7 +210,10 @@ export function activate(context: vscode.ExtensionContext) {
         }
         const termsToSend = scanResult.terms;
         if (termsToSend.length > 0) {
-          await translationService.translateTerms(termsToSend);
+          const sentCount = await translationService.translateTerms(termsToSend);
+          logAutoTranslate(
+            `sent terms=${termsToSend.length} translated=${sentCount} pendingAfterSend=${pending.size}`,
+          );
           for (const term of termsToSend) {
             pending.delete(term);
           }
@@ -174,8 +228,10 @@ export function activate(context: vscode.ExtensionContext) {
           translatedContentProvider,
           document,
         );
+        logAutoTranslate('refresh visible translated done');
       } catch {
         // Silent failure — no API key, network error, etc.
+        logAutoTranslate('autoTranslate failed (silent)');
       }
     })();
   }
@@ -201,11 +257,23 @@ export function activate(context: vscode.ExtensionContext) {
   );
   const onEditorChanged = vscode.window.onDidChangeActiveTextEditor(
     (editor) => {
+      if (editor?.document.uri.scheme === 'file') {
+        const docKey = editor.document.uri.toString();
+        lastAutoVisibleHash.delete(docKey);
+        lastAutoAnchorByDoc.delete(docKey);
+        pendingAutoTermsByDoc.delete(docKey);
+      }
       scheduleAutoTranslate(editor, { force: true, immediate: true });
     },
   );
   const onVisibleRangesChanged =
     vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
+      if (
+        event.textEditor !== vscode.window.activeTextEditor ||
+        event.textEditor.document.uri.scheme !== 'file'
+      ) {
+        return;
+      }
       scheduleAutoTranslate(event.textEditor, { force: true });
     });
   const onSelectionChanged = vscode.window.onDidChangeTextEditorSelection(
@@ -262,6 +330,18 @@ export function activate(context: vscode.ExtensionContext) {
   });
   const onClosed = vscode.workspace.onDidCloseTextDocument((document) => {
     translationService.invalidateDocument(document.uri);
+    const retryTimer = autoTranslateRetryTimers.get(document.uri.toString());
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      autoTranslateRetryTimers.delete(document.uri.toString());
+    }
+    const debounceTimer = autoTranslateDebounceTimers.get(
+      document.uri.toString(),
+    );
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      autoTranslateDebounceTimers.delete(document.uri.toString());
+    }
     const timer = pendingRefreshTimers.get(document.uri.toString());
     if (timer) {
       clearTimeout(timer);
@@ -306,6 +386,14 @@ export function activate(context: vscode.ExtensionContext) {
       clearTimeout(timer);
     }
     pendingRefreshTimers.clear();
+    for (const timer of autoTranslateRetryTimers.values()) {
+      clearTimeout(timer);
+    }
+    autoTranslateRetryTimers.clear();
+    for (const timer of autoTranslateDebounceTimers.values()) {
+      clearTimeout(timer);
+    }
+    autoTranslateDebounceTimers.clear();
     pendingAutoTermsByDoc.clear();
     lastAutoVisibleHash.clear();
     lastAutoAnchorByDoc.clear();
@@ -345,6 +433,7 @@ export function activate(context: vscode.ExtensionContext) {
     onVisibleRangesChanged,
     onSelectionChanged,
     cleanupTimers,
+    autoTranslateLog,
   );
 }
 
