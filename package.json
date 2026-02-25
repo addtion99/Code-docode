@@ -2,7 +2,7 @@
   "name": "code-decode",
   "displayName": "Code Decode",
   "description": "Decode code intent by translating identifiers for easier reading",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "addtion99",
   "license": "MIT",
   "repository": {

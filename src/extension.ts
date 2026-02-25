@@ -63,7 +63,8 @@ export function activate(context: vscode.ExtensionContext) {
   const setApiKeyCommand = registerSetApiKeyCommand(translationService);
   const setRequestConcurrencyCommand = registerSetRequestConcurrencyCommand();
   const clearCacheCommand = registerClearCacheCommand(translationService);
-  const selectProviderCommand = registerSelectProviderCommand(translationService);
+  const selectProviderCommand =
+    registerSelectProviderCommand(translationService);
   const useInlayModeCommand = registerUseInlayModeCommand();
   const useSplitModeCommand = registerUseSplitModeCommand(
     translationService,
@@ -80,7 +81,11 @@ export function activate(context: vscode.ExtensionContext) {
     async () => {
       const config = vscode.workspace.getConfiguration('codeTranslator');
       const current = config.get<boolean>('autoTranslate', false);
-      await config.update('autoTranslate', !current, vscode.ConfigurationTarget.Global);
+      await config.update(
+        'autoTranslate',
+        !current,
+        vscode.ConfigurationTarget.Global,
+      );
       void vscode.window.showInformationMessage(
         `Code Decode: Auto Translate ${current ? 'disabled' : 'enabled'}.`,
       );
@@ -92,7 +97,8 @@ export function activate(context: vscode.ExtensionContext) {
   const lastAutoAnchorByDoc = new Map<string, number>();
   const minAutoScrollLines = 5;
   const autoTranslateMaxPendingBatches = 4;
-  const autoTranslateMaxPendingTerms = autoTranslateMaxPendingBatches *
+  const autoTranslateMaxPendingTerms =
+    autoTranslateMaxPendingBatches *
     Math.max(1, getTranslatorSettings().maxBatchTerms);
 
   let autoTranslateTimer: NodeJS.Timeout | undefined;
@@ -105,7 +111,11 @@ export function activate(context: vscode.ExtensionContext) {
       autoTranslateTimer = undefined;
     }
     const settings = getTranslatorSettings();
-    if (!settings.autoTranslate || !editor || editor.document.uri.scheme !== 'file') {
+    if (
+      !settings.autoTranslate ||
+      !editor ||
+      editor.document.uri.scheme !== 'file'
+    ) {
       return;
     }
     const document = editor.document;
@@ -113,9 +123,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (!visible) {
       return;
     }
-    const anchorLine = Math.floor(
-      (visible.start.line + visible.end.line) / 2,
-    );
+    const anchorLine = Math.floor((visible.start.line + visible.end.line) / 2);
     const docKey = document.uri.toString();
     const lastAnchor = lastAutoAnchorByDoc.get(docKey);
     if (!options.force && lastAnchor !== undefined) {
@@ -144,13 +152,14 @@ export function activate(context: vscode.ExtensionContext) {
           const docKey = document.uri.toString();
           const pending =
             pendingAutoTermsByDoc.get(docKey) ?? new Set<string>();
-          const scanResult = await translationService.collectMissingTermsAroundLine(
-            document,
-            anchorLine,
-            20,
-            60,
-            { pendingTerms: pending, maxScanLines: 400 },
-          );
+          const scanResult =
+            await translationService.collectMissingTermsAroundLine(
+              document,
+              anchorLine,
+              20,
+              60,
+              { pendingTerms: pending, maxScanLines: 400 },
+            );
           for (const term of scanResult.terms) {
             pending.add(term);
           }
@@ -159,7 +168,8 @@ export function activate(context: vscode.ExtensionContext) {
           }
           const shouldFlushBySize = pending.size >= settings.maxBatchTerms;
           const shouldFlushByCap = pending.size >= autoTranslateMaxPendingTerms;
-          const shouldFlushByBoundary = scanResult.hitTop && scanResult.hitBottom;
+          const shouldFlushByBoundary =
+            scanResult.hitTop && scanResult.hitBottom;
           if (shouldFlushBySize || shouldFlushByCap || shouldFlushByBoundary) {
             const maxSend = shouldFlushByBoundary
               ? pending.size
@@ -188,12 +198,15 @@ export function activate(context: vscode.ExtensionContext) {
       })();
     }, debounceMs);
   };
-  const onEditorChanged = vscode.window.onDidChangeActiveTextEditor(scheduleAutoTranslate);
-  const onVisibleRangesChanged = vscode.window.onDidChangeTextEditorVisibleRanges(
-    (event) => {
-      scheduleAutoTranslate(event.textEditor);
+  const onEditorChanged = vscode.window.onDidChangeActiveTextEditor(
+    (editor) => {
+      scheduleAutoTranslate(editor, { force: true, immediate: true });
     },
   );
+  const onVisibleRangesChanged =
+    vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
+      scheduleAutoTranslate(event.textEditor);
+    });
   const onSelectionChanged = vscode.window.onDidChangeTextEditorSelection(
     (event) => {
       const editor = event.textEditor;
@@ -206,7 +219,8 @@ export function activate(context: vscode.ExtensionContext) {
       const bigJump =
         lastAnchor !== undefined &&
         Math.abs(activeLine - lastAnchor) >= minAutoScrollLines * 2;
-      const commandJump = event.kind === vscode.TextEditorSelectionChangeKind.Command;
+      const commandJump =
+        event.kind === vscode.TextEditorSelectionChangeKind.Command;
       if (bigJump || commandJump) {
         scheduleAutoTranslate(editor, { force: true, immediate: true });
       }
@@ -257,9 +271,10 @@ export function activate(context: vscode.ExtensionContext) {
     if (event.affectsConfiguration('codeTranslator')) {
       translationService.invalidateAllDocuments();
       for (const editor of vscode.window.visibleTextEditors) {
-        const sourceUri = translatedContentProvider.getSourceUriFromTranslatedUri(
-          editor.document.uri,
-        );
+        const sourceUri =
+          translatedContentProvider.getSourceUriFromTranslatedUri(
+            editor.document.uri,
+          );
         if (!sourceUri) {
           continue;
         }
@@ -295,7 +310,10 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Automatically apply ghost theme on first activation
   void (async () => {
-    const hasApplied = context.globalState.get<boolean>('codeTranslator.themeApplied', false);
+    const hasApplied = context.globalState.get<boolean>(
+      'codeTranslator.themeApplied',
+      false,
+    );
     if (!hasApplied) {
       await applyGhostTheme();
       await context.globalState.update('codeTranslator.themeApplied', true);
