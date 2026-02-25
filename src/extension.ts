@@ -80,11 +80,6 @@ export function activate(context: vscode.ExtensionContext) {
   const lastAutoVisibleHash = new Map<string, string>();
   const lastAutoAnchorByDoc = new Map<string, number>();
   const minAutoScrollLines = 5;
-  const autoTranslateMaxPendingBatches = 4;
-  const autoTranslateMaxPendingTerms =
-    autoTranslateMaxPendingBatches *
-    Math.max(1, getTranslatorSettings().maxBatchTerms);
-
   function scheduleAutoTranslate(
     editor: vscode.TextEditor | undefined,
     options: { force?: boolean; immediate?: boolean } = {},
@@ -151,7 +146,10 @@ export function activate(context: vscode.ExtensionContext) {
             anchorLine,
             20,
             60,
-            { pendingTerms: pending, maxScanLines: 400 },
+            {
+              pendingTerms: pending,
+              maxScanLines: 400,
+            },
           );
         for (const term of scanResult.terms) {
           pending.add(term);
@@ -159,14 +157,9 @@ export function activate(context: vscode.ExtensionContext) {
         if (pending.size > 0) {
           pendingAutoTermsByDoc.set(docKey, pending);
         }
-        const shouldFlushBySize = pending.size >= settings.maxBatchTerms;
-        const shouldFlushByCap = pending.size >= autoTranslateMaxPendingTerms;
-        const shouldFlushByBoundary = scanResult.hitTop && scanResult.hitBottom;
-        if (shouldFlushBySize || shouldFlushByCap || shouldFlushByBoundary) {
-          const maxSend = shouldFlushByBoundary
-            ? pending.size
-            : Math.max(1, settings.maxBatchTerms);
-          const termsToSend = Array.from(pending).slice(0, maxSend);
+        const termsToSend = scanResult.terms;
+        if (termsToSend.length > 0) {
+          await translationService.translateTerms(termsToSend);
           for (const term of termsToSend) {
             pending.delete(term);
           }
@@ -174,9 +167,6 @@ export function activate(context: vscode.ExtensionContext) {
             pendingAutoTermsByDoc.delete(docKey);
           } else {
             pendingAutoTermsByDoc.set(docKey, pending);
-          }
-          if (termsToSend.length > 0) {
-            await translationService.translateTerms(termsToSend);
           }
         }
         await refreshVisibleTranslatedForSource(
