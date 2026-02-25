@@ -250,7 +250,6 @@ export class TranslationService {
   public async translateCurrentFile(
     document: vscode.TextDocument,
   ): Promise<FileTranslationResult> {
-    // #region agent log
     fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
       method: 'POST',
       headers: {
@@ -270,10 +269,8 @@ export class TranslationService {
         hypothesisId: 'flow',
       }),
     }).catch(() => {});
-    // #endregion
     await this.cacheStore.init();
     await this.workspaceIndexStore.init();
-    // #region agent log
     fetch('http://127.0.0.1:7703/ingest/230e8f82-105f-4b4e-9cf0-57c1da17e9bd', {
       method: 'POST',
       headers: {
@@ -289,7 +286,6 @@ export class TranslationService {
         hypothesisId: 'flow',
       }),
     }).catch(() => {});
-    // #endregion
 
     const settings = getTranslatorSettings();
     const occurrences = await this.collectOccurrences(document);
@@ -524,29 +520,52 @@ export class TranslationService {
     let afterRemaining = Math.max(0, afterCount);
 
     let scannedUp = 0;
+    let scannedDown = 0;
     let hitTop = false;
-    for (
-      let line = clampedAnchor;
-      line >= 0 && beforeRemaining > 0 && scannedUp <= maxScanLines;
-      line -= 1, scannedUp += 1
-    ) {
-      beforeRemaining = addFromLine(line, beforeRemaining);
-    }
-    if (clampedAnchor - scannedUp < 0 || clampedAnchor === 0) {
-      hitTop = true;
+    let hitBottom = false;
+
+    let nextUpLine = clampedAnchor;
+    let nextDownLine = clampedAnchor + 1;
+
+    const scanUp = (): void => {
+      for (
+        let line = nextUpLine;
+        line >= 0 && beforeRemaining > 0 && scannedUp <= maxScanLines;
+        line -= 1, scannedUp += 1
+      ) {
+        beforeRemaining = addFromLine(line, beforeRemaining);
+        nextUpLine = line - 1;
+      }
+      if (nextUpLine < 0) {
+        hitTop = true;
+      }
+    };
+
+    const scanDown = (): void => {
+      for (
+        let line = nextDownLine;
+        line < lineCount && afterRemaining > 0 && scannedDown <= maxScanLines;
+        line += 1, scannedDown += 1
+      ) {
+        afterRemaining = addFromLine(line, afterRemaining);
+        nextDownLine = line + 1;
+      }
+      if (nextDownLine >= lineCount) {
+        hitBottom = true;
+      }
+    };
+
+    scanUp();
+    if (beforeRemaining > 0) {
+      afterRemaining += beforeRemaining;
+      beforeRemaining = 0;
     }
 
-    let scannedDown = 0;
-    let hitBottom = false;
-    for (
-      let line = clampedAnchor + 1;
-      line < lineCount && afterRemaining > 0 && scannedDown <= maxScanLines;
-      line += 1, scannedDown += 1
-    ) {
-      afterRemaining = addFromLine(line, afterRemaining);
-    }
-    if (clampedAnchor + 1 + scannedDown >= lineCount || clampedAnchor === lineCount - 1) {
-      hitBottom = true;
+    scanDown();
+    if (afterRemaining > 0) {
+      beforeRemaining = afterRemaining;
+      afterRemaining = 0;
+      scanUp();
     }
 
     return { terms: result, hitTop, hitBottom };
@@ -834,10 +853,7 @@ export class TranslationService {
   private extractNormalizedTerms(
     occurrences: IdentifierOccurrence[],
   ): string[] {
-    return extractNormalizedTerms(
-      occurrences,
-      this.buildTranslationFilters(),
-    );
+    return extractNormalizedTerms(occurrences, this.buildTranslationFilters());
   }
 
   private async buildOriginalToTranslationMap(
