@@ -76,22 +76,6 @@ export function activate(context: vscode.ExtensionContext) {
     translatedContentProvider,
   );
 
-  const toggleAutoTranslateCommand = vscode.commands.registerCommand(
-    'codeTranslator.toggleAutoTranslate',
-    async () => {
-      const config = vscode.workspace.getConfiguration('codeTranslator');
-      const current = config.get<boolean>('autoTranslate', false);
-      await config.update(
-        'autoTranslate',
-        !current,
-        vscode.ConfigurationTarget.Global,
-      );
-      void vscode.window.showInformationMessage(
-        `Code Decode: Auto Translate ${current ? 'disabled' : 'enabled'}.`,
-      );
-    },
-  );
-
   const pendingAutoTermsByDoc = new Map<string, Set<string>>();
   const lastAutoVisibleHash = new Map<string, string>();
   const lastAutoAnchorByDoc = new Map<string, number>();
@@ -101,15 +85,10 @@ export function activate(context: vscode.ExtensionContext) {
     autoTranslateMaxPendingBatches *
     Math.max(1, getTranslatorSettings().maxBatchTerms);
 
-  let autoTranslateTimer: NodeJS.Timeout | undefined;
-  const scheduleAutoTranslate = (
+  function scheduleAutoTranslate(
     editor: vscode.TextEditor | undefined,
     options: { force?: boolean; immediate?: boolean } = {},
-  ): void => {
-    if (autoTranslateTimer) {
-      clearTimeout(autoTranslateTimer);
-      autoTranslateTimer = undefined;
-    }
+  ): void {
     const settings = getTranslatorSettings();
     if (
       !settings.autoTranslate ||
@@ -142,62 +121,94 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
     lastAutoVisibleHash.set(document.uri.toString(), visibleHash);
-    const debounceMs = options.immediate
-      ? 0
-      : Math.max(100, settings.autoTranslateDebounceMs);
-    autoTranslateTimer = setTimeout(() => {
-      autoTranslateTimer = undefined;
-      void (async () => {
-        try {
-          const docKey = document.uri.toString();
-          const pending =
-            pendingAutoTermsByDoc.get(docKey) ?? new Set<string>();
-          const scanResult =
-            await translationService.collectMissingTermsAroundLine(
-              document,
-              anchorLine,
-              20,
-              60,
-              { pendingTerms: pending, maxScanLines: 400 },
-            );
-          for (const term of scanResult.terms) {
-            pending.add(term);
+    void (async () => {
+      try {
+        const docKey = document.uri.toString();
+        const pending = pendingAutoTermsByDoc.get(docKey) ?? new Set<string>();
+        const visibleStart = visible.start.line;
+        const visibleEnd = visible.end.line;
+        const preflightAfterCount = Math.max(
+          0,
+          visibleEnd - visibleStart + 1 + 10,
+        );
+        const preflight =
+          await translationService.collectMissingTermsAroundLine(
+            document,
+            visibleStart,
+            0,
+            preflightAfterCount,
+            {
+              pendingTerms: pending,
+              maxScanLines: Math.max(0, preflightAfterCount + 5),
+            },
+          );
+        if (preflight.terms.length === 0) {
+          return;
+        }
+        const scanResult =
+          await translationService.collectMissingTermsAroundLine(
+            document,
+            anchorLine,
+            20,
+            60,
+            { pendingTerms: pending, maxScanLines: 400 },
+          );
+        for (const term of scanResult.terms) {
+          pending.add(term);
+        }
+        if (pending.size > 0) {
+          pendingAutoTermsByDoc.set(docKey, pending);
+        }
+        const shouldFlushBySize = pending.size >= settings.maxBatchTerms;
+        const shouldFlushByCap = pending.size >= autoTranslateMaxPendingTerms;
+        const shouldFlushByBoundary = scanResult.hitTop && scanResult.hitBottom;
+        if (shouldFlushBySize || shouldFlushByCap || shouldFlushByBoundary) {
+          const maxSend = shouldFlushByBoundary
+            ? pending.size
+            : Math.max(1, settings.maxBatchTerms);
+          const termsToSend = Array.from(pending).slice(0, maxSend);
+          for (const term of termsToSend) {
+            pending.delete(term);
           }
-          if (pending.size > 0) {
+          if (pending.size === 0) {
+            pendingAutoTermsByDoc.delete(docKey);
+          } else {
             pendingAutoTermsByDoc.set(docKey, pending);
           }
-          const shouldFlushBySize = pending.size >= settings.maxBatchTerms;
-          const shouldFlushByCap = pending.size >= autoTranslateMaxPendingTerms;
-          const shouldFlushByBoundary =
-            scanResult.hitTop && scanResult.hitBottom;
-          if (shouldFlushBySize || shouldFlushByCap || shouldFlushByBoundary) {
-            const maxSend = shouldFlushByBoundary
-              ? pending.size
-              : Math.max(1, settings.maxBatchTerms);
-            const termsToSend = Array.from(pending).slice(0, maxSend);
-            for (const term of termsToSend) {
-              pending.delete(term);
-            }
-            if (pending.size === 0) {
-              pendingAutoTermsByDoc.delete(docKey);
-            } else {
-              pendingAutoTermsByDoc.set(docKey, pending);
-            }
-            if (termsToSend.length > 0) {
-              await translationService.translateTerms(termsToSend);
-            }
+          if (termsToSend.length > 0) {
+            await translationService.translateTerms(termsToSend);
           }
-          await refreshVisibleTranslatedForSource(
-            translationService,
-            translatedContentProvider,
-            document,
-          );
-        } catch {
-          // Silent failure — no API key, network error, etc.
         }
-      })();
-    }, debounceMs);
-  };
+        await refreshVisibleTranslatedForSource(
+          translationService,
+          translatedContentProvider,
+          document,
+        );
+      } catch {
+        // Silent failure — no API key, network error, etc.
+      }
+    })();
+  }
+
+  const toggleAutoTranslateCommand = vscode.commands.registerCommand(
+    'codeTranslator.toggleAutoTranslate',
+    async () => {
+      const config = vscode.workspace.getConfiguration('codeTranslator');
+      const current = config.get<boolean>('autoTranslate', false);
+      const nextValue = !current;
+      await config.update(
+        'autoTranslate',
+        nextValue,
+        vscode.ConfigurationTarget.Global,
+      );
+      if (nextValue) {
+        scheduleAutoTranslate(vscode.window.activeTextEditor, { force: true });
+      }
+      void vscode.window.showInformationMessage(
+        `Code Decode: Auto Translate ${current ? 'disabled' : 'enabled'}.`,
+      );
+    },
+  );
   const onEditorChanged = vscode.window.onDidChangeActiveTextEditor(
     (editor) => {
       scheduleAutoTranslate(editor, { force: true, immediate: true });
@@ -205,7 +216,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
   const onVisibleRangesChanged =
     vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
-      scheduleAutoTranslate(event.textEditor);
+      scheduleAutoTranslate(event.textEditor, { force: true });
     });
   const onSelectionChanged = vscode.window.onDidChangeTextEditorSelection(
     (event) => {
@@ -291,14 +302,16 @@ export function activate(context: vscode.ExtensionContext) {
           }
         })();
       }
+      if (
+        event.affectsConfiguration('codeTranslator.autoTranslate') &&
+        getTranslatorSettings().autoTranslate
+      ) {
+        scheduleAutoTranslate(vscode.window.activeTextEditor, { force: true });
+      }
     }
   });
 
   const cleanupTimers = new vscode.Disposable(() => {
-    if (autoTranslateTimer) {
-      clearTimeout(autoTranslateTimer);
-      autoTranslateTimer = undefined;
-    }
     for (const timer of pendingRefreshTimers.values()) {
       clearTimeout(timer);
     }
