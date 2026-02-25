@@ -280,7 +280,7 @@ export function buildProtectedTermSet(terms: string[]): Set<string> {
 }
 
 export function buildGlossaryMap(
-  glossary: TranslatorSettings['glossary'],
+  glossary: Record<string, string>,
 ): Map<string, string> {
   const map = new Map<string, string>();
   for (const [rawKey, rawValue] of Object.entries(glossary)) {

@@ -56,22 +56,23 @@
 
 | 命令                        | 快捷键 | 说明                                                           |
 | --------------------------- | ------ | -------------------------------------------------------------- |
-| **Translate This File**     | -      | **(推荐)** 仅翻译当前打开的文件，速度快，即点即用。            |
-| **Translate This Project**  | -      | 扫描整个工作区进行翻译。首次运行推荐使用，建立缓存后后续极快。 |
+| **Translate This File**     | -      | **(推荐)** 仅翻译当前打开的文件，速度快，即点即用。默认以 Inlay 虚影模式展示（若你已选 Split 则保持分屏）。 |
+| **Translate This Project**  | -      | 扫描整个工作区进行翻译。首次运行推荐使用，建立缓存后后续极快。完成后默认以 Inlay 模式展示（若已选 Split 则保持分屏）。 |
+| **Auto Translate**          | -      | 开启后，在切换标签、滚动、跳转等操作时会自动收集并翻译当前可见区域的标识符，无需手动执行翻译。默认使用 Inlay 模式（若已选 Split 则保持分屏）。 |
 | **Refresh Current View**    | -      | 如果修改了代码或切换了语言，执行此命令强制刷新当前视图。       |
 | **Clear Translation Cache** | -      | 清空所有缓存和索引（更换 API 模型后建议执行）。                |
 
 ### 2. 切换视图模式
 
-你可以根据喜好选择译文展示方式，支持热切换：
+默认使用 **Inlay 虚影模式**。你可以随时切换到 Split 分屏，之后「翻译本文件 / 本项目」与「Auto Translate」会尊重你的选择（保持 Split）；未设置过分屏时则使用 Inlay。
 
-- **Code Decode: Use Inlay Mode** (默认)
+- **Code Decode: Use Inlay Mode**（默认）
   - 译文以灰色虚影形式跟在变量名后面。
   - 优点：视线无需移动，沉浸式阅读。
   - _效果示例：_ `const user: 用户 = getUser: 获取用户();`
     <img alt="image" src="https://github.com/user-attachments/assets/ba96eeea-8d23-4f37-9098-72de36002498" />
 
-- **Code Decode: Use Split Mode** (快捷键 `Ctrl+Alt+T`)
+- **Code Decode: Use Split Mode**（快捷键 `Ctrl+Alt+T`）
   - 自动打开右侧对比窗口，显示翻译后的伪代码。
   - 优点：源码保持纯净，适合大段代码对照理解。
     <img  alt="image" src="https://github.com/user-attachments/assets/39716ec6-a13e-4b2a-9d3f-4204ca953da0" />

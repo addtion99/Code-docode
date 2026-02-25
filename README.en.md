@@ -58,16 +58,17 @@ To make your GitHub repository accessible to a global audience, a professional a
 
 ### 1. Commands
 
-| Command                     | Shortcut | Description                                                             |
-| :-------------------------- | :------- | :---------------------------------------------------------------------- |
-| **Translate This File**     | -        | **(Recommended)** Translates only the current file. Fast and on-demand. |
-| **Translate This Project**  | -        | Scans the whole workspace. Recommended for first-time use.              |
-| **Refresh Current View**    | -        | Force refresh if you've modified code or changed language settings.     |
-| **Clear Translation Cache** | -        | Clears all local caches (recommended after changing AI models).         |
+| Command                     | Shortcut | Description                                                                                                                                 |
+| :-------------------------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Translate This File**     | -        | **(Recommended)** Translates only the current file. Displays in Inlay by default (or keeps Split if you chose it).                         |
+| **Translate This Project**  | -        | Scans the whole workspace. After completion, shows in Inlay by default (or Split if set).                                                 |
+| **Auto Translate**          | -        | When enabled, auto-translates visible identifiers on tab switch, scroll, or go-to. Uses Inlay by default (or Split if set).                 |
+| **Refresh Current View**    | -        | Force refresh if you've modified code or changed language settings.                                                                         |
+| **Clear Translation Cache** | -        | Clears all local caches (recommended after changing AI models).                                                                            |
 
 ### 2. View Modes
 
-Switch between modes based on your preference:
+**Inlay mode** is the default. You can switch to Split anytime; Translate This File/Project and Auto Translate will keep your choice (Split when set).
 
 - **Inlay Mode** (Default)
   - Translations appear as grey hints following the identifier.
