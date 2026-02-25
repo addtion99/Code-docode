@@ -35,7 +35,7 @@ const PRESETS: ProviderPreset[] = [
   {
     id: 'glm',
     label: '智谱 GLM-4-FlashX-250414',
-    description: '智谱AI开放平台（OpenAI兼容接口，FlashX超低价）',
+    description: '智谱AI开放平台（free ,recommended !）',
     apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     model: 'GLM-4-FlashX-250414',
   },

@@ -2,7 +2,7 @@
   "name": "code-decode",
   "displayName": "Code Decode",
   "description": "Decode code intent by translating identifiers for easier reading",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "addtion99",
   "license": "MIT",
   "repository": {
@@ -67,11 +67,11 @@
       },
       {
         "command": "codeTranslator.toggleAutoTranslate",
-        "title": "Code Decode:2 Auto Translate "
+        "title": "Code Decode:2 Auto Translate (Recommended!)"
       },
       {
         "command": "codeTranslator.useInlayMode",
-        "title": "Code Decode:3 Use Inlay Mode"
+        "title": "Code Decode:3 Use Inlay Mode(Recommended!)"
       },
       {
         "command": "codeTranslator.useSplitMode",
